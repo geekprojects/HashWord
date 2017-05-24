@@ -1,0 +1,8 @@
+*.o
+*.asm
+*.dSYM
+
+hashword
+hashword.db
+
+_CodeSignature/
