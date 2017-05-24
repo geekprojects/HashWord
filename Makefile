@@ -1,5 +1,5 @@
 
-SRCS=main.cpp hashword.cpp database.cpp base64.cpp
+SRCS=main.cpp hashword.cpp database.cpp base64.cpp utils.cpp
 OBJS=$(SRCS:.cpp=.o)
 
 all: hashword
