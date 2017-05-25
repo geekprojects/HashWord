@@ -82,17 +82,18 @@ int main(int argc, char** argv)
 
     if (!strncmp("init", command, 4))
     {
-        string password1 = getPassword("Password");
-        string password2 = getPassword("Retype password");
+        string password1 = getPassword("New Master password");
+        string password2 = getPassword("Retype new Master password");
         if (password1 != password2)
         {
             printf("Passwords do not match\n");
             return 1;
         }
-printf("HashWord: Generating new master key:\n");
         Key* masterKey = hashWord.generateKey();
-printf("HashWord: Saving...\n");
         hashWord.saveMasterKey(masterKey, password1);
+
+        masterKey->shred();
+        free(masterKey);
     }
     else if (!strncmp("savepassword", command, 12))
     {

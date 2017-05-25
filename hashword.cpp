@@ -189,8 +189,11 @@ Data* HashWord::encryptMultiple(Key* key1, Key* key2, Data* value)
             key = key2;
         }
         Data* encryptedNew = encrypt(key, encrypted);
-        encrypted->shred();
-        free(encrypted);
+        if (encrypted != value)
+        {
+            encrypted->shred();
+            free(encrypted);
+        }
         encrypted = encryptedNew;
     }
     return encrypted;
@@ -219,6 +222,9 @@ string HashWord::encryptValue(Key* masterKey, Key* valueKey, string value)
 
     encValue->shred();
     free(encValue);
+
+    valueData->shred();
+    free(valueData);
 
     return valueEnc;
 }
@@ -326,8 +332,11 @@ Data* HashWord::decryptMultiple(Key* key1, Key* key2, Data* enc)
             key = key2;
         }
         Data* decryptedNew = decrypt(key, decrypted);
-        decrypted->shred();
-        free(decrypted);
+        if (decrypted != enc)
+        {
+            decrypted->shred();
+            free(decrypted);
+        }
         decrypted = decryptedNew;
     }
     return decrypted;
@@ -340,7 +349,12 @@ Data* HashWord::decryptMultiple(Key* key1, Key* key2, std::string enc64)
     encData->length = encStr.length();
     memcpy(encData->data, encStr.c_str(), encStr.length());
 
-    return decryptMultiple(key1, key2, encData);
+    Data* decData = decryptMultiple(key1, key2, encData);
+
+    encData->shred();
+    free(encData);
+
+    return decData;
 }
 
 string HashWord::decryptValue(Key* masterKey, Key* valueKey, std::string enc64)
