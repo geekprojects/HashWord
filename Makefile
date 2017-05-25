@@ -1,14 +1,14 @@
+TOP=.
+TGT=hashword
 
+SUBDIRS=openaes sha
 SRCS=main.cpp hashword.cpp database.cpp base64.cpp utils.cpp
-OBJS=$(SRCS:.cpp=.o)
 
-all: hashword
+all: TARGET=all
+all: $(TGT)
 
-hashword: $(OBJS)
-	cd openaes; $(MAKE) $(TARGET)
-	cd sha; $(MAKE) $(TARGET)
-	gcc -o hashword $(OBJS) openaes/libopenaes.o sha/libsha.o -lstdc++ -lsqlite3 -L/usr/local/lib -lscrypt
+include $(TOP)/common.mk
 
-.cpp.o:
-	gcc -c $< -I/usr/local/include
+$(TGT): $(OBJS) subdirs
+	gcc -o $(TGT) $(ALL_OBJS) -lstdc++ -lsqlite3
 

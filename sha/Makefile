@@ -1,9 +1,7 @@
+TOP=..
+SRCS_C=hkdf.c hmac.c sha224-256.c sha384-512.c usha.c
 
-SRCS=hmac.c sha224-256.c sha384-512.c usha.c hkdf.c
-OBJS=$(SRCS:.c=.o)
+all: subdir.o
 
-all: libsha.o
-
-libsha.o: $(OBJS)
-	ld -r -o libsha.o $(OBJS)
+include $(TOP)/common.mk
 
