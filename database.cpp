@@ -154,21 +154,23 @@ string primaryKeys = "";
                 }
                 if (columnIt->isPrimary)
                 {
-if (primaryKeys.length() > 0)
-{
-primaryKeys += ", ";
-}
+                    if (primaryKeys.length() > 0)
+                    {
+                        primaryKeys += ", ";
+                    }
                     primaryKeys += columnIt->name;
                 }
             }
 
-if (primaryKeys.length() > 0)
-{
-            createSql += ", PRIMARY KEY (" + primaryKeys + ")";
-}
+            if (primaryKeys.length() > 0)
+            {
+                createSql += ", PRIMARY KEY (" + primaryKeys + ")";
+            }
 
             createSql += ")";
+/*
             printf("Database::checkSchema:  -> %s\n", createSql.c_str());
+*/
 
             execute(createSql);
             created = true;
@@ -194,7 +196,9 @@ if (primaryKeys.length() > 0)
                         column.c_str());
                     string alterSql =
                         "ALTER TABLE " + table + " ADD COLUMN " + column;
+/*
                     printf("Database::checkSchema:  -> %s\n", alterSql.c_str());
+*/
                     execute(alterSql);
                     created = true;
                 }
