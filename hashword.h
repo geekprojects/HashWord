@@ -11,6 +11,7 @@ class HashWord
 {
  private:
     Database* m_database;
+    Random m_random;
 
     std::string m_username;
     uint8_t m_iv[OAES_BLOCK_SIZE];
@@ -54,6 +55,8 @@ class HashWord
     bool savePassword(Key* masterKey, std::string domain, std::string domainUser, std::string domainPassword);
     bool savePassword(Key* masterKey, std::string domain, std::string domainPassword);
     bool getPassword(Key* masterKey, std::string domain);
+
+    void shred(Data* data);
 };
 
 #endif

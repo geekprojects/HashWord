@@ -33,9 +33,7 @@
 
 #include "oaes_common.h"
 
-#ifdef __cplusplus 
-extern "C" {
-#endif
+#include "random.h"
 
 #ifdef _WIN32
 #  ifdef OAES_SHARED
@@ -118,7 +116,7 @@ typedef uint16_t OAES_OPTION;
  * oaes_free( &ctx );
  */
 
-OAES_API OAES_CTX * oaes_alloc();
+OAES_API OAES_CTX * oaes_alloc(Random* random);
 
 OAES_API OAES_RET oaes_free( OAES_CTX ** ctx );
 
@@ -168,9 +166,5 @@ OAES_API OAES_RET oaes_decrypt( OAES_CTX * ctx,
 // set buf == NULL to get the required buf_len
 OAES_API OAES_RET oaes_sprintf(
     char * buf, size_t * buf_len, const uint8_t * data, size_t data_len );
-
-#ifdef __cplusplus 
-}
-#endif
 
 #endif // _OAES_LIB_H

@@ -11,7 +11,6 @@ struct Data
     size_t length;
     uint8_t data[0];
 
-    void shred();
     std::string base64();
 
     static Data* alloc(size_t size);

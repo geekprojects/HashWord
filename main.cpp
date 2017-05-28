@@ -106,7 +106,7 @@ int main(int argc, char** argv)
         Key* masterKey = hashWord.generateKey();
         hashWord.saveMasterKey(masterKey, password1);
 
-        masterKey->shred();
+        hashWord.shred(masterKey);
         free(masterKey);
     }
     else if (!strncmp("savepassword", command, 12))
@@ -136,7 +136,7 @@ int main(int argc, char** argv)
         }
         hashWord.savePassword(masterKey, string(domain), string(user), domainPassword);
 
-        masterKey->shred();
+        hashWord.shred(masterKey);
         free(masterKey);
     }
     else if (!strncmp("getpassword", command, 11))
@@ -156,7 +156,7 @@ int main(int argc, char** argv)
         }
 
         hashWord.getPassword(masterKey, string(domain));
-        masterKey->shred();
+        hashWord.shred(masterKey);
         free(masterKey);
     }
 

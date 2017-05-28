@@ -28,7 +28,9 @@
  * ---------------------------------------------------------------------------
  */
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stddef.h>
 #include <time.h> 
 #include <sys/timeb.h>
@@ -42,12 +44,7 @@
 #include "oaes_config.h"
 #include "oaes_lib.h"
 
-#ifdef OAES_HAVE_ISAAC
-#include "rand.h"
-#define OAES_RAND(x) rand(x)
-#else
 #define OAES_RAND(x) rand()
-#endif // OAES_HAVE_ISAAC
 
 #define OAES_RKEY_LEN 4
 #define OAES_COL_LEN 4
@@ -72,9 +69,7 @@ typedef struct _oaes_key
 
 typedef struct _oaes_ctx
 {
-#ifdef OAES_HAVE_ISAAC
-  randctx * rctx;
-#endif // OAES_HAVE_ISAAC
+  Random* random;
 
 #ifdef OAES_DEBUG
   oaes_step_cb step_cb;
@@ -464,18 +459,6 @@ OAES_RET oaes_sprintf(
   return OAES_RET_SUCCESS;
 }
 
-static void oaes_get_seed( char buf[RANDSIZ + 1] )
-{
-    FILE* fd = fopen("/dev/random", "rw");
-    if (fd == NULL)
-    {
-        printf("oaes_get_seed: Failed to open /dev/random!\n");
-        exit(1);
-    }
-    fread(buf, RANDSIZ + 1, 1, fd);
-    fclose(fd);
-}
-
 static OAES_RET oaes_key_destroy( oaes_key ** key )
 {
   if( NULL == *key )
@@ -593,7 +576,7 @@ static OAES_RET oaes_key_gen( OAES_CTX * ctx, size_t key_size )
     _key->data[_i] = (uint8_t) OAES_RAND(_ctx->rctx);
   
   _ctx->key = _key;
-  _rc = _rc || oaes_key_expand( ctx );
+  _rc = oaes_key_expand( ctx );
   
   if( _rc != OAES_RET_SUCCESS )
   {
@@ -761,7 +744,7 @@ OAES_RET oaes_key_import( OAES_CTX * ctx,
   }
 
   memcpy( _ctx->key->data, data + OAES_BLOCK_SIZE, _key_length );
-  _rc = _rc || oaes_key_expand( ctx );
+  _rc = oaes_key_expand( ctx );
   
   if( _rc != OAES_RET_SUCCESS )
   {
@@ -813,7 +796,7 @@ OAES_RET oaes_key_import_data( OAES_CTX * ctx,
   }
 
   memcpy( _ctx->key->data, data, data_len );
-  _rc = _rc || oaes_key_expand( ctx );
+  _rc = oaes_key_expand( ctx );
   
   if( _rc != OAES_RET_SUCCESS )
   {
@@ -824,35 +807,12 @@ OAES_RET oaes_key_import_data( OAES_CTX * ctx,
   return OAES_RET_SUCCESS;
 }
 
-OAES_CTX * oaes_alloc()
+OAES_CTX * oaes_alloc(Random* random)
 {
   oaes_ctx * _ctx = (oaes_ctx *) calloc( sizeof( oaes_ctx ), 1 );
   
   if( NULL == _ctx )
     return NULL;
-
-#ifdef OAES_HAVE_ISAAC
-  {
-    char _seed[RANDSIZ + 1];
-    
-    _ctx->rctx = (randctx *) calloc( sizeof( randctx ), 1 );
-
-    if( NULL == _ctx->rctx )
-    {
-      free( _ctx );
-      return NULL;
-    }
-
-    oaes_get_seed( _seed );
-    memset( _ctx->rctx->randrsl, 0, RANDSIZ );
-    memcpy( _ctx->rctx->randrsl, _seed, RANDSIZ );
-
-    //for (i=0; i<256; ++i) ctx.randrsl[i]=(ub4)0;
-    randinit( _ctx->rctx, TRUE);
-  }
-#else
-    srand( oaes_get_seed() );
-#endif // OAES_HAVE_ISAAC
 
   _ctx->key = NULL;
   oaes_set_option( _ctx, OAES_OPTION_CBC, NULL );
@@ -878,14 +838,6 @@ OAES_RET oaes_free( OAES_CTX ** ctx )
   if( (*_ctx)->key )
     oaes_key_destroy( &((*_ctx)->key) );
 
-#ifdef OAES_HAVE_ISAAC
-  if( (*_ctx)->rctx )
-  {
-    free( (*_ctx)->rctx );
-    (*_ctx)->rctx = NULL;
-  }
-#endif // OAES_HAVE_ISAAC
-  
   free( *_ctx );
   *_ctx = NULL;
 
@@ -925,7 +877,7 @@ OAES_RET oaes_set_option( OAES_CTX * ctx,
       if( value )
       {
         _ctx->options &= ~OAES_OPTION_STEP_OFF;
-        _ctx->step_cb = value;
+        _ctx->step_cb = (oaes_step_cb)value;
       }
       else
       {
@@ -1244,8 +1196,11 @@ OAES_RET oaes_encrypt( OAES_CTX * ctx,
         _block[_j] = _block[_j] ^ iv[_j];
     }
 
-    _rc = _rc ||
-        oaes_encrypt_block( ctx, _block, OAES_BLOCK_SIZE );
+    OAES_RET _rc_encrypt = oaes_encrypt_block( ctx, _block, OAES_BLOCK_SIZE );
+    if (_rc_encrypt != OAES_RET_SUCCESS)
+    {
+        _rc = _rc_encrypt;
+    }
     memcpy( c + _i, _block, OAES_BLOCK_SIZE );
     
     if( _ctx->options & OAES_OPTION_CBC )
@@ -1317,8 +1272,11 @@ OAES_RET oaes_decrypt( OAES_CTX * ctx,
     if( ( _options & OAES_OPTION_CBC ) && _i > 0 )
       memcpy(iv, c - OAES_BLOCK_SIZE + _i, OAES_BLOCK_SIZE);
     
-    _rc = _rc ||
-        oaes_decrypt_block( ctx, m + _i, min( *m_len - _i, OAES_BLOCK_SIZE ) );
+    OAES_RET _rc_decrypt = oaes_decrypt_block( ctx, m + _i, min( *m_len - _i, OAES_BLOCK_SIZE ) );
+if (_rc_decrypt != OAES_RET_SUCCESS)
+{
+_rc = _rc_decrypt;
+}
     
     // CBC
     if( _options & OAES_OPTION_CBC )

@@ -82,7 +82,7 @@ Key* HashWord::generateKey()
 {
     OAES_RET res;
 
-    OAES_CTX* oaes = oaes_alloc();
+    OAES_CTX* oaes = oaes_alloc(&m_random);
 
     res = oaes_key_gen_256(oaes);
     if (res != OAES_RET_SUCCESS)
@@ -109,7 +109,7 @@ Key* HashWord::generateKey()
     res = oaes_key_export_data(oaes, key->data, &keyLen);
     if (res != OAES_RET_SUCCESS)
     {
-        key->shred();
+        shred(key);
         free(key);
         oaes_free(&oaes);
         return NULL;
@@ -124,7 +124,7 @@ Data* HashWord::encrypt(Key* key, uint8_t* in, size_t inLength)
 {
     OAES_RET res;
 
-    OAES_CTX* oaes = oaes_alloc();
+    OAES_CTX* oaes = oaes_alloc(&m_random);
 
     res = oaes_key_import_data(oaes, key->data, key->length);
 
@@ -173,7 +173,7 @@ std::string HashWord::encrypt64(Key* key, uint8_t* in, size_t inLength)
     }
 
     string encrypted64 = base64_encode(enc->data, enc->length);
-    enc->shred();
+    shred(enc);
     free(enc);
 
     return encrypted64;
@@ -202,7 +202,7 @@ Data* HashWord::encryptMultiple(Key* key1, Key* key2, Data* value)
         Data* encryptedNew = encrypt(key, encrypted);
         if (encrypted != value)
         {
-            encrypted->shred();
+            shred(encrypted);
             free(encrypted);
         }
         encrypted = encryptedNew;
@@ -231,10 +231,10 @@ string HashWord::encryptValue(Key* masterKey, Key* valueKey, string value)
 
     string valueEnc = base64_encode(encValue->data, encValue->length);
 
-    encValue->shred();
+    shred(encValue);
     free(encValue);
 
-    valueData->shred();
+    shred(valueData);
     free(valueData);
 
     return valueEnc;
@@ -244,7 +244,7 @@ Data* HashWord::decrypt(Key* key, Data* encData)
 {
     OAES_RET res;
 
-    OAES_CTX* oaes = oaes_alloc();
+    OAES_CTX* oaes = oaes_alloc(&m_random);
 
     res = oaes_key_import_data(oaes, key->data, key->length);
     if (res != OAES_RET_SUCCESS)
@@ -288,7 +288,7 @@ Data* HashWord::decrypt(Key* key, std::string enc64)
     OAES_RET res;
     string enc = base64_decode(enc64);
 
-    OAES_CTX* oaes = oaes_alloc();
+    OAES_CTX* oaes = oaes_alloc(&m_random);
 
     res = oaes_key_import_data(oaes, key->data, key->length);
     if (res != OAES_RET_SUCCESS)
@@ -344,7 +344,7 @@ Data* HashWord::decryptMultiple(Key* key1, Key* key2, Data* enc)
         Data* decryptedNew = decrypt(key, decrypted);
         if (decrypted != enc)
         {
-            decrypted->shred();
+            shred(decrypted);
             free(decrypted);
         }
         decrypted = decryptedNew;
@@ -361,7 +361,7 @@ Data* HashWord::decryptMultiple(Key* key1, Key* key2, std::string enc64)
 
     Data* decData = decryptMultiple(key1, key2, encData);
 
-    encData->shred();
+    shred(encData);
     free(encData);
 
     return decData;
@@ -374,7 +374,7 @@ string HashWord::decryptValue(Key* masterKey, Key* valueKey, std::string enc64)
     Data* valueData = (Data*)decData->data;
     string value = string((char*)valueData->data, valueData->length);
 
-    decData->shred();
+    shred(decData);
     free(decData);
 
     return value;
@@ -411,7 +411,7 @@ Key* HashWord::deriveKey(Key* salt, std::string password)
         newKey->data, newKey->length);
     if (res != shaSuccess)
     {
-        newKey->shred();
+        shred(newKey);
         free(newKey);
         return NULL;
     }
@@ -444,16 +444,16 @@ bool HashWord::saveMasterKey(Key* masterKey, string password)
     Data* masterKeyEnc = encryptMultiple(userKey, NULL, (Data*)masterKey);
     string masterKey64 = base64_encode(masterKeyEnc->data, masterKeyEnc->length);
 
-    masterKeyEnc->shred();
+    shred(masterKeyEnc);
     free(masterKeyEnc);
 
     string userHash = hash(m_globalSalt, m_username);
     string salt64 = base64_encode(salt->data, salt->length);
 
-    userKey->shred();
+    shred(userKey);
     free(userKey);
 
-    salt->shred();
+    shred(salt);
     free(salt);
 
     vector<string> args;
@@ -539,9 +539,9 @@ Key* HashWord::getMasterKey(string password)
 
     Key* masterKey = (Key*)decryptMultiple(userKey, NULL, masterKey64);
 
-    userKey->shred();
+    shred(userKey);
     free(userKey);
-    salt->shred();
+    shred(salt);
     free(salt);
 
     return masterKey;
@@ -555,13 +555,13 @@ bool HashWord::savePassword(Key* masterKey, string domain, string domainUser, st
     string domainUserEnc = encryptValue(masterKey, passwordKey, domainUser);
     string domainPasswordEnc = encryptValue(masterKey, passwordKey, domainPassword);
 
-    passwordKey->shred();
+    shred(passwordKey);
     free(passwordKey);
 
     string idHash = hash(masterKey, m_username + ":" + domain);
 
     string salt64 = base64_encode(salt->data, salt->length);
-    salt->shred();
+    shred(salt);
     free(salt);
 
     vector<string> args;
@@ -618,13 +618,13 @@ bool HashWord::getPassword(Key* masterKey, std::string domain)
     Key* salt = decodeKey(salt64);
 
     Key* passwordKey = deriveKey(salt, domain);
-    salt->shred();
+    shred(salt);
     free(salt);
 
     string user = decryptValue(masterKey, passwordKey, domainUserEnc64);
     string password = decryptValue(masterKey, passwordKey, domainPasswordEnc64);
 
-    passwordKey->shred();
+    shred(passwordKey);
     free(passwordKey);
 
     printf("HashWord::getPassword: User: %s\n", user.c_str());
@@ -673,5 +673,30 @@ void HashWord::setConfig(std::string name, std::string value)
     args.push_back(name);
     args.push_back(value);
     m_database->execute("INSERT INTO config (name, value) VALUES (?, ?)", args);
+}
+
+void HashWord::shred(Data* data)
+{
+    size_t i;
+    for (i = 0; i < data->length; i++)
+    {
+        data->data[i] = m_random.rand32() % 255;
+    }
+    for (i = 0; i < data->length; i++)
+    {
+        data->data[i] = 0;
+    }
+    for (i = 0; i < data->length; i++)
+    {
+        data->data[i] = m_random.rand32() % 255;
+    }
+    for (i = 0; i < data->length; i++)
+    {
+        data->data[i] = 255;
+    }
+    for (i = 0; i < data->length; i++)
+    {
+        data->data[i] = 0;
+    }
 }
 

@@ -20,32 +20,6 @@ Key* Key::alloc(size_t length)
     return key;
 }
 
-
-void Data::shred()
-{
-    size_t i;
-    for (i = 0; i < length; i++)
-    {
-        data[i] = random() % 255;
-    }
-    for (i = 0; i < length; i++)
-    {
-        data[i] = 0;
-    }
-    for (i = 0; i < length; i++)
-    {
-        data[i] = random() % 255;
-    }
-    for (i = 0; i < length; i++)
-    {
-        data[i] = 255;
-    }
-    for (i = 0; i < length; i++)
-    {
-        data[i] = 0;
-    }
-}
-
 string Data::base64()
 {
     return base64_encode(data, length);

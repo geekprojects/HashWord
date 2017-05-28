@@ -1,5 +1,5 @@
 TOP=..
-SRCS_C=oaes_lib.c rand.c
+SRCS=oaes_lib.cpp
 
 all: subdir.o
 
