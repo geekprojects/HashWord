@@ -44,7 +44,7 @@
 #include "oaes_config.h"
 #include "oaes_lib.h"
 
-#define OAES_RAND(x) rand()
+#define OAES_RAND(_x) ((_x)->random->rand32())
 
 #define OAES_RKEY_LEN 4
 #define OAES_COL_LEN 4
@@ -573,7 +573,7 @@ static OAES_RET oaes_key_gen( OAES_CTX * ctx, size_t key_size )
   }
 
   for( _i = 0; _i < key_size; _i++ )
-    _key->data[_i] = (uint8_t) OAES_RAND(_ctx->rctx);
+    _key->data[_i] = (uint8_t) OAES_RAND(_ctx);
   
   _ctx->key = _key;
   _rc = oaes_key_expand( ctx );
@@ -670,7 +670,7 @@ OAES_RET oaes_key_import( OAES_CTX * ctx,
 {
   oaes_ctx * _ctx = (oaes_ctx *) ctx;
   OAES_RET _rc = OAES_RET_SUCCESS;
-  int _key_length;
+  size_t _key_length;
   
   if( NULL == _ctx )
     return OAES_RET_ARG1;
@@ -814,6 +814,8 @@ OAES_CTX * oaes_alloc(Random* random)
   if( NULL == _ctx )
     return NULL;
 
+  _ctx->random = random;
+
   _ctx->key = NULL;
   oaes_set_option( _ctx, OAES_OPTION_CBC, NULL );
 
@@ -867,7 +869,7 @@ OAES_RET oaes_set_option( OAES_CTX * ctx,
       else
       {
         for( _i = 0; _i < OAES_BLOCK_SIZE; _i++ )
-          _ctx->iv[_i] = (uint8_t) OAES_RAND(_ctx->rctx);
+          _ctx->iv[_i] = (uint8_t) OAES_RAND(_ctx);
       }
       break;
 
@@ -1216,7 +1218,6 @@ OAES_RET oaes_decrypt( OAES_CTX * ctx,
 {
   size_t _i, _j, _m_len_in;
   oaes_ctx * _ctx = (oaes_ctx *) ctx;
-  OAES_RET _rc = OAES_RET_SUCCESS;
   OAES_OPTION _options;
   
   if( NULL == ctx )
@@ -1273,10 +1274,10 @@ OAES_RET oaes_decrypt( OAES_CTX * ctx,
       memcpy(iv, c - OAES_BLOCK_SIZE + _i, OAES_BLOCK_SIZE);
     
     OAES_RET _rc_decrypt = oaes_decrypt_block( ctx, m + _i, min( *m_len - _i, OAES_BLOCK_SIZE ) );
-if (_rc_decrypt != OAES_RET_SUCCESS)
-{
-_rc = _rc_decrypt;
-}
+    if (_rc_decrypt != OAES_RET_SUCCESS)
+    {
+      return _rc_decrypt;
+    }
     
     // CBC
     if( _options & OAES_OPTION_CBC )
