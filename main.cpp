@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <termios.h>
 #include <fcntl.h>
@@ -71,7 +72,14 @@ string getPassword(string prompt)
 int main(int argc, char** argv)
 {
     HashWord hashWord("ian");
-    hashWord.open();
+
+    bool res;
+    res = hashWord.open();
+    if (!res)
+    {
+        printf("HashWord: Failed to open database\n");
+        return 1;
+    }
 
     if (argc < 2)
     {
@@ -82,6 +90,12 @@ int main(int argc, char** argv)
 
     if (!strncmp("init", command, 4))
     {
+        if (hashWord.hasMasterKey())
+        {
+            printf("Master key is already present\n");
+            return 1;
+        }
+
         string password1 = getPassword("New Master password");
         string password2 = getPassword("Retype new Master password");
         if (password1 != password2)
