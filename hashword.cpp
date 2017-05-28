@@ -8,7 +8,7 @@
 #include "base64.h"
 #include "utils.h"
 
-#define AES_ROUNDS 10000
+#define AES_ROUNDS 1000
 
 using namespace std;
 
@@ -40,12 +40,17 @@ bool HashWord::open()
 
     vector<Table> tables;
 
+    Table config;
+    config.name = "config";
+    config.columns.insert(Column("name", "TEXT", true));
+    config.columns.insert(Column("value"));
+    tables.push_back(config);
+
     Table keys;
     keys.name = "user_keys";
     keys.columns.insert(Column("user_hash", "TEXT", true));
     keys.columns.insert(Column("salt"));
     keys.columns.insert(Column("master_key_enc"));
-    keys.columns.insert(Column("hash"));
     tables.push_back(keys);
 
     Table passwords;
@@ -56,10 +61,18 @@ bool HashWord::open()
     passwords.columns.insert(Column("domain_password_enc", "TEXT", false));
     tables.push_back(passwords);
 
-    res = m_database->checkSchema(tables);
-    if (!res)
+    m_database->checkSchema(tables);
+
+    string globalSalt64 = getConfig("globalSalt");
+    if (globalSalt64.length() == 0)
     {
-        return false;
+        m_globalSalt = generateKey();
+        globalSalt64 = m_globalSalt->base64();
+        setConfig("globalSalt", globalSalt64);
+    }
+    else
+    {
+        m_globalSalt = decodeKey(globalSalt64);
     }
 
     return true;
@@ -86,13 +99,12 @@ Key* HashWord::generateKey()
         return NULL;
     }
 
-    Key* key = (Key*)malloc(sizeof(Key) + keyLen);
+    Key* key = Key::alloc(keyLen);
     if (key == NULL)
     {
         oaes_free(&oaes);
         return NULL;
     }
-    key->length = keyLen;
 
     res = oaes_key_export_data(oaes, key->data, &keyLen);
     if (res != OAES_RET_SUCCESS)
@@ -131,8 +143,7 @@ Data* HashWord::encrypt(Key* key, uint8_t* in, size_t inLength)
     uint8_t iv[OAES_BLOCK_SIZE];
     memcpy(iv, m_iv, OAES_BLOCK_SIZE);
 
-    Data* encData = (Data*)malloc(sizeof(Data) + encLen);
-    encData->length = encLen;
+    Data* encData = Data::alloc(encLen);
 
     res = oaes_encrypt(oaes, in, inLength, encData->data, &(encData->length), iv, &pad);
 
@@ -207,7 +218,7 @@ string HashWord::encryptValue(Key* masterKey, Key* valueKey, string value)
         valueDataLen = 256;
     }
 
-    Data* valueData = (Data*)malloc(sizeof(Data) + valueDataLen);
+    Data* valueData = Data::alloc(valueDataLen);
     valueData->length = valueDataLen;
 
     // The value we encrypt embeds its size
@@ -256,7 +267,7 @@ Data* HashWord::decrypt(Key* key, Data* encData)
         return NULL;
     }
 
-    Data* dec = (Data*)malloc(sizeof(Data) + decLen);
+    Data* dec = Data::alloc(decLen);
     dec->length = decLen;
     res = oaes_decrypt(oaes, encData->data, encData->length, dec->data, &(dec->length), iv, pad);
 
@@ -300,8 +311,7 @@ Data* HashWord::decrypt(Key* key, std::string enc64)
         return NULL;
     }
 
-    Data* dec = (Data*)malloc(sizeof(Data) + decLen);
-    dec->length = decLen;
+    Data* dec = Data::alloc(decLen);
     res = oaes_decrypt(oaes, (uint8_t*)enc.c_str(), enc.length(), dec->data, &(dec->length), iv, pad);
 
     oaes_free(&oaes);
@@ -345,7 +355,7 @@ Data* HashWord::decryptMultiple(Key* key1, Key* key2, Data* enc)
 Data* HashWord::decryptMultiple(Key* key1, Key* key2, std::string enc64)
 {
     string encStr = base64_decode(enc64);
-    Data* encData = (Data*)malloc(sizeof(Data) + encStr.length());
+    Data* encData = Data::alloc(encStr.length());
     encData->length = encStr.length();
     memcpy(encData->data, encStr.c_str(), encStr.length());
 
@@ -389,17 +399,15 @@ std::string HashWord::hash(Key* salt, std::string str)
 Key* HashWord::deriveKey(Key* salt, std::string password)
 {
     string ikm = m_username + password;
-    string info = "HashWord";
 
     int buflen = 32;
-    Key* newKey = (Key*)malloc(sizeof(Key) + buflen);
-    newKey->length = buflen;
+    Key* newKey = Key::alloc(buflen);
 
     int res = hkdf(
         SHA512,
         salt->data, salt->length,
         (uint8_t*)ikm.c_str(), ikm.length(),
-        (uint8_t*)info.c_str(), info.length(),
+        m_globalSalt->data, m_globalSalt->length,
         newKey->data, newKey->length);
     if (res != shaSuccess)
     {
@@ -422,6 +430,12 @@ hkdf((username + password), salt) -> User Key
 
 bool HashWord::saveMasterKey(Key* masterKey, string password)
 {
+    if (m_globalSalt == NULL)
+    {
+        printf("HashWord::saveMasterKey: No global salt!\n");
+        return false;
+    }
+
     // Generate a salt
     Key* salt = generateKey();
 
@@ -433,13 +447,11 @@ bool HashWord::saveMasterKey(Key* masterKey, string password)
     masterKeyEnc->shred();
     free(masterKeyEnc);
 
-    string userHash = hash(NULL, m_username);
+    string userHash = hash(m_globalSalt, m_username);
     string salt64 = base64_encode(salt->data, salt->length);
 
     userKey->shred();
     free(userKey);
-
-    string hash64 = hash(salt, userHash + ":" + salt64 + ":" + masterKey64);
 
     salt->shred();
     free(salt);
@@ -448,28 +460,57 @@ bool HashWord::saveMasterKey(Key* masterKey, string password)
     args.push_back(userHash);
     args.push_back(salt64);
     args.push_back(masterKey64);
-    args.push_back(hash64);
 
     m_database->execute(
-        "INSERT OR REPLACE INTO user_keys (user_hash, salt, master_key_enc, hash) VALUES (?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO user_keys (user_hash, salt, master_key_enc) VALUES (?, ?, ?)",
         args);
 
     return true;
 }
 
-Key* decodeKey(std::string key64)
+Key* HashWord::decodeKey(std::string key64)
 {
     string keyStr = base64_decode(key64);
-    Key* key = (Key*)malloc(sizeof(Key) + keyStr.length());
-    key->length = keyStr.length();
+    Key* key = Key::alloc(keyStr.length());
     memcpy(key->data, keyStr.c_str(), keyStr.length());
     return key;
 }
 
+bool HashWord::hasMasterKey()
+{
+    PreparedStatement* stmt = m_database->prepareStatement("SELECT 1 FROM user_keys WHERE user_hash=?");
+    string userHash = hash(NULL, m_username);
+    stmt->bindString(1, userHash);
+
+    bool res;
+    res = stmt->executeQuery();
+    if (!res)
+    {
+        delete stmt;
+        return false;
+    }
+
+    res = stmt->step();
+    delete stmt;
+
+    if (!res)
+    {
+        return false;
+    }
+
+    return true;
+}
+
 Key* HashWord::getMasterKey(string password)
 {
-    PreparedStatement* stmt = m_database->prepareStatement("SELECT salt, master_key_enc, hash FROM user_keys WHERE user_hash=?");
-    string userHash = hash(NULL, m_username);
+    if (m_globalSalt == NULL)
+    {
+        printf("HashWord::saveMasterKey: No global salt!\n");
+        return NULL;
+    }
+
+    PreparedStatement* stmt = m_database->prepareStatement("SELECT salt, master_key_enc FROM user_keys WHERE user_hash=?");
+    string userHash = hash(m_globalSalt, m_username);
     stmt->bindString(1, userHash);
 
     bool res;
@@ -489,19 +530,10 @@ Key* HashWord::getMasterKey(string password)
 
     string salt64 = stmt->getString(0);
     string masterKey64 = stmt->getString(1);
-    string hash64 = stmt->getString(2);
 
     delete stmt;
 
     Key* salt = decodeKey(salt64);
-
-    string hashCheck64 = hash(salt, userHash + ":" + salt64 + ":" + masterKey64);
-
-    if (hash64 != hashCheck64)
-    {
-        printf("HashWord::getMasterKey: user key record has been corrupted!\n");
-        return NULL;
-    }
 
     Key* userKey = deriveKey(salt, password);
 
@@ -611,29 +643,35 @@ void HashWord::fillRandom(uint8_t* data, size_t length)
     }
 }
 
-void Data::shred()
+std::string HashWord::getConfig(std::string name)
 {
-    size_t i;
-    for (i = 0; i < length; i++)
+    PreparedStatement* stmt = m_database->prepareStatement("SELECT value FROM config WHERE name=?");
+    stmt->bindString(1, name);
+
+    bool res;
+    res = stmt->executeQuery();
+    if (res)
     {
-        data[i] = random() % 255;
+        res = stmt->step();
     }
-    for (i = 0; i < length; i++)
+
+    if (!res)
     {
-        data[i] = 0;
+        delete stmt;
+        return "";
     }
-    for (i = 0; i < length; i++)
-    {
-        data[i] = random() % 255;
-    }
-    for (i = 0; i < length; i++)
-    {
-        data[i] = 255;
-    }
-    for (i = 0; i < length; i++)
-    {
-        data[i] = 0;
-    }
+
+    string value = stmt->getString(0);
+    delete stmt;
+
+    return value;
 }
 
+void HashWord::setConfig(std::string name, std::string value)
+{
+    vector<string> args;
+    args.push_back(name);
+    args.push_back(value);
+    m_database->execute("INSERT INTO config (name, value) VALUES (?, ?)", args);
+}
 

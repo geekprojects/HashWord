@@ -2,20 +2,10 @@
 #define __HASHWORD_H_
 
 #include "database.h"
+#include "data.h"
 
 #include "openaes/oaes_lib.h"
 #include "sha/sha.h"
-
-struct Data
-{
-    size_t length;
-    uint8_t data[0];
-    void shred();
-};
-
-struct Key : public Data
-{
-};
 
 class HashWord
 {
@@ -24,6 +14,7 @@ class HashWord
 
     std::string m_username;
     uint8_t m_iv[OAES_BLOCK_SIZE];
+    Key* m_globalSalt;
 
     Key* deriveKey(Key* salt, std::string password);
 
@@ -40,9 +31,13 @@ class HashWord
     Data* decryptMultiple(Key* key1, Key* key2, std::string enc64);
     std::string decryptValue(Key* masterKey, Key* valueKey, std::string enc64);
 
+    Key* decodeKey(std::string key64);
     std::string hash(Key* salt, std::string str);
 
     void fillRandom(uint8_t* data, size_t length);
+
+    std::string getConfig(std::string name);
+    void setConfig(std::string name, std::string value);
 
  public:
     HashWord(std::string username);
@@ -52,6 +47,7 @@ class HashWord
 
     Key* generateKey();
 
+    bool hasMasterKey();
     bool saveMasterKey(Key* masterKey, std::string password);
     Key* getMasterKey(std::string password);
 
