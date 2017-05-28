@@ -8,7 +8,7 @@
 #include "base64.h"
 #include "utils.h"
 
-#define AES_ROUNDS 1000
+#define AES_ROUNDS 10000
 
 using namespace std;
 
@@ -26,6 +26,11 @@ HashWord::HashWord(string username)
 
 HashWord::~HashWord()
 {
+    if (m_globalSalt != NULL)
+    {
+        free(m_globalSalt);
+    }
+
     m_database->close();
     delete m_database;
 }
@@ -673,6 +678,27 @@ void HashWord::setConfig(std::string name, std::string value)
     args.push_back(name);
     args.push_back(value);
     m_database->execute("INSERT INTO config (name, value) VALUES (?, ?)", args);
+}
+
+string g_lower = "abcdefghijklmnopqrstuvwxyz";
+string g_upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+string g_numbers = "0123456789";
+string g_other = "!@#$%^&*()/";
+
+string HashWord::generatePassword(int length)
+{
+    string password = "";
+
+    string possibleChars = g_lower + g_upper + g_numbers + g_other;
+
+    int i;
+    for (i = 0; i < length; i++)
+    {
+        int c = m_random.rand32() % possibleChars.length();
+
+        password += possibleChars[c];
+    }
+    return password;
 }
 
 void HashWord::shred(Data* data)

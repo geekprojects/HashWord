@@ -115,6 +115,7 @@ int main(int argc, char** argv)
         {
             return 1;
         }
+
         const char* user = "";
         const char* domain = "";
         if (argc == 3)
@@ -159,7 +160,41 @@ int main(int argc, char** argv)
         hashWord.shred(masterKey);
         free(masterKey);
     }
+    else if (!strncmp("generatepassword", command, 16))
+    {
+        if (argc < 3)
+        {
+            return 1;
+        }
 
+        const char* user = "";
+        const char* domain = "";
+        if (argc == 3)
+        {
+            domain = argv[2];
+        }
+        else if (argc == 4)
+        {
+            domain = argv[2];
+            user = argv[3];
+        }
+ 
+        string masterPassword = getPassword("Master Password");
+        Key* masterKey = hashWord.getMasterKey(masterPassword);
+        if (masterKey == NULL)
+        {
+            printf("HashWord: Unable to unlock Master Key\n");
+            return 1;
+        }
+
+        string password = hashWord.generatePassword(16);
+        printf("HashWord: New Password: '%s'\n", password.c_str());
+
+        hashWord.savePassword(masterKey, string(domain), string(user), password);
+
+        hashWord.shred(masterKey);
+        free(masterKey);
+    }
 
     return 0;
 }

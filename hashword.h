@@ -56,6 +56,8 @@ class HashWord
     bool savePassword(Key* masterKey, std::string domain, std::string domainPassword);
     bool getPassword(Key* masterKey, std::string domain);
 
+    std::string generatePassword(int length);
+
     void shred(Data* data);
 };
 
