@@ -7,6 +7,12 @@
 #include "openaes/oaes_lib.h"
 #include "sha/sha.h"
 
+struct PasswordDetails
+{
+    std::string username;
+    std::string password;
+};
+
 class HashWord
 {
  private:
@@ -54,7 +60,7 @@ class HashWord
 
     bool savePassword(Key* masterKey, std::string domain, std::string domainUser, std::string domainPassword);
     bool savePassword(Key* masterKey, std::string domain, std::string domainPassword);
-    bool getPassword(Key* masterKey, std::string domain);
+    bool getPassword(Key* masterKey, std::string domain, PasswordDetails& details);
 
     std::string generatePassword(int length);
 

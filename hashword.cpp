@@ -56,12 +56,13 @@ bool HashWord::open()
     keys.columns.insert(Column("user_hash", "TEXT", true));
     keys.columns.insert(Column("salt"));
     keys.columns.insert(Column("master_key_enc"));
+    keys.columns.insert(Column("check_hash"));
     tables.push_back(keys);
 
     Table passwords;
     passwords.name = "passwords";
     passwords.columns.insert(Column("id", "TEXT", true));
-    passwords.columns.insert(Column("salt", "TEXT", false));
+    passwords.columns.insert(Column("salt_enc", "TEXT", false));
     passwords.columns.insert(Column("domain_user_enc", "TEXT", false));
     passwords.columns.insert(Column("domain_password_enc", "TEXT", false));
     tables.push_back(passwords);
@@ -455,6 +456,8 @@ bool HashWord::saveMasterKey(Key* masterKey, string password)
     string userHash = hash(m_globalSalt, m_username);
     string salt64 = base64_encode(salt->data, salt->length);
 
+    string checkHash = hash(masterKey, salt64);
+
     shred(userKey);
     free(userKey);
 
@@ -465,9 +468,10 @@ bool HashWord::saveMasterKey(Key* masterKey, string password)
     args.push_back(userHash);
     args.push_back(salt64);
     args.push_back(masterKey64);
+    args.push_back(checkHash);
 
     m_database->execute(
-        "INSERT OR REPLACE INTO user_keys (user_hash, salt, master_key_enc) VALUES (?, ?, ?)",
+        "INSERT OR REPLACE INTO user_keys (user_hash, salt, master_key_enc, check_hash) VALUES (?, ?, ?, ?)",
         args);
 
     return true;
@@ -514,7 +518,7 @@ Key* HashWord::getMasterKey(string password)
         return NULL;
     }
 
-    PreparedStatement* stmt = m_database->prepareStatement("SELECT salt, master_key_enc FROM user_keys WHERE user_hash=?");
+    PreparedStatement* stmt = m_database->prepareStatement("SELECT salt, master_key_enc, check_hash FROM user_keys WHERE user_hash=?");
     string userHash = hash(m_globalSalt, m_username);
     stmt->bindString(1, userHash);
 
@@ -535,6 +539,7 @@ Key* HashWord::getMasterKey(string password)
 
     string salt64 = stmt->getString(0);
     string masterKey64 = stmt->getString(1);
+    string checkHash = stmt->getString(2);
 
     delete stmt;
 
@@ -544,10 +549,20 @@ Key* HashWord::getMasterKey(string password)
 
     Key* masterKey = (Key*)decryptMultiple(userKey, NULL, masterKey64);
 
+    string checkHash2 = hash(masterKey, salt64);
+
     shred(userKey);
     free(userKey);
     shred(salt);
     free(salt);
+
+    if (checkHash != checkHash2)
+    {
+        shred(masterKey);
+        free(masterKey);
+
+        return NULL;
+    }
 
     return masterKey;
 }
@@ -565,18 +580,17 @@ bool HashWord::savePassword(Key* masterKey, string domain, string domainUser, st
 
     string idHash = hash(masterKey, m_username + ":" + domain);
 
-    string salt64 = base64_encode(salt->data, salt->length);
-    shred(salt);
-    free(salt);
+    Data* saltEnc = encryptMultiple(masterKey, NULL, salt);
+    string saltEnc64 = base64_encode(saltEnc->data, saltEnc->length);
 
     vector<string> args;
     args.push_back(idHash);
-    args.push_back(salt64);
+    args.push_back(saltEnc64);
     args.push_back(domainUserEnc);
     args.push_back(domainPasswordEnc);
 
     m_database->execute(
-        "INSERT OR REPLACE INTO passwords (id, salt, domain_user_enc, domain_password_enc) VALUES (?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO passwords (id, salt_enc, domain_user_enc, domain_password_enc) VALUES (?, ?, ?, ?)",
         args);
 
     return true;
@@ -587,12 +601,12 @@ bool HashWord::savePassword(Key* masterKey, string domain, std::string domainPas
     return savePassword(masterKey, domain, "", domainPassword);
 }
 
-bool HashWord::getPassword(Key* masterKey, std::string domain)
+bool HashWord::getPassword(Key* masterKey, std::string domain, PasswordDetails& details)
 {
     string idHash = hash(masterKey, m_username + ":" + domain);
 
     PreparedStatement* stmt = m_database->prepareStatement(
-        "SELECT domain_user_enc, domain_password_enc, salt FROM passwords WHERE id=?");
+        "SELECT domain_user_enc, domain_password_enc, salt_enc FROM passwords WHERE id=?");
     stmt->bindString(1, idHash);
 
     bool res;
@@ -616,24 +630,21 @@ bool HashWord::getPassword(Key* masterKey, std::string domain)
 
     string domainUserEnc64 = stmt->getString(0);
     string domainPasswordEnc64 = stmt->getString(1);
-    string salt64 = stmt->getString(2);
+    string saltEnc64 = stmt->getString(2);
 
     delete stmt;
 
-    Key* salt = decodeKey(salt64);
+    Key* salt = (Key*)decryptMultiple(masterKey, NULL, saltEnc64);
 
     Key* passwordKey = deriveKey(salt, domain);
     shred(salt);
     free(salt);
 
-    string user = decryptValue(masterKey, passwordKey, domainUserEnc64);
-    string password = decryptValue(masterKey, passwordKey, domainPasswordEnc64);
+    details.username = decryptValue(masterKey, passwordKey, domainUserEnc64);
+    details.password = decryptValue(masterKey, passwordKey, domainPasswordEnc64);
 
     shred(passwordKey);
     free(passwordKey);
-
-    printf("HashWord::getPassword: User: %s\n", user.c_str());
-    printf("HashWord::getPassword: Password: %s\n", password.c_str());
 
     return true;
 }
