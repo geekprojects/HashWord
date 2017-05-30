@@ -218,7 +218,7 @@ Data* HashWord::encryptMultiple(Key* key1, Key* key2, Data* value)
 
 string HashWord::encryptValue(Key* masterKey, Key* valueKey, string value)
 {
-    size_t valueDataLen = sizeof(Data) + value.length();
+    size_t valueDataLen = sizeof(Container) + value.length();
     if (valueDataLen < 256)
     {
         valueDataLen = 256;
@@ -228,9 +228,10 @@ string HashWord::encryptValue(Key* masterKey, Key* valueKey, string value)
     valueData->length = valueDataLen;
 
     // The value we encrypt embeds its size
-    Data* valueContainer = (Data*)(valueData->data);
+    Container* valueContainer = (Container*)(valueData->data);
     fillRandom((uint8_t*)valueContainer, valueDataLen);
     valueContainer->length = value.length();
+    valueContainer->timestamp = time(NULL);
     memcpy(valueContainer->data, value.c_str(), value.length());
 
     Data* encValue = encryptMultiple(masterKey, valueKey, valueData);
@@ -377,7 +378,7 @@ string HashWord::decryptValue(Key* masterKey, Key* valueKey, std::string enc64)
 {
     Data* decData = decryptMultiple(masterKey, valueKey, enc64);
 
-    Data* valueData = (Data*)decData->data;
+    Container* valueData = (Container*)decData->data;
     string value = string((char*)valueData->data, valueData->length);
 
     shred(decData);
