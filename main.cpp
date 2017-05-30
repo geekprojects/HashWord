@@ -18,21 +18,17 @@ using namespace std;
 #define TCSETA TIOCSETA
 #endif
 
-string getPassword(string prompt)
+void setPasswordMode(struct termios* tsave)
 {
-    string password = "";
-    struct termios tsave, chgit;
-
-    printf("%s: ", prompt.c_str());
-    fflush(stdout);
+    struct termios chgit;
 
     // Save the current state
-    if (ioctl(0, TCGETA, &tsave) == -1)
+    if (ioctl(0, TCGETA, tsave) == -1)
     {
         printf("Failed to store terminal settings!\n");
         exit(1);
     }
-    chgit = tsave;
+    chgit = *tsave;
 
     // Turn off canonial mode and echoing
     chgit.c_lflag &= ~(ICANON|ECHO);
@@ -43,6 +39,26 @@ string getPassword(string prompt)
         printf("Failed to modify terminal settings!\n");
         exit(1);
     }
+}
+
+void resetMode(struct termios* tsave)
+{
+    if (ioctl(0, TCSETA, tsave) == -1)
+    {
+        printf("Failed to restore terminal settings!\n");
+        exit(1);
+    }
+}
+
+string getPassword(string prompt)
+{
+    string password = "";
+    struct termios tsave;
+
+    printf("%s: ", prompt.c_str());
+    fflush(stdout);
+
+    setPasswordMode(&tsave);
 
     while (1)
     {
@@ -61,12 +77,31 @@ string getPassword(string prompt)
 
     printf("\n");
 
-    if (ioctl(0, TCSETA, &tsave) == -1)
-    {
-        printf("Failed to restore terminal settings!\n");
-        exit(1);
-    }
+    resetMode(&tsave);
+
     return password;
+}
+
+void showPassword(string username, string password)
+{
+    struct termios tsave;
+
+    printf("Username: %s\n", username.c_str());
+    printf("Password: %s\n", password.c_str());
+    printf("Press a key to hide the password");
+    fflush(stdout);
+
+    setPasswordMode(&tsave);
+    getchar();
+
+    resetMode(&tsave);
+
+    printf("%c[2A", 0x1B);
+    printf("%c[1K", 0x1B);
+    printf("%c[1B", 0x1B);
+    printf("%c[1K", 0x1B);
+    printf("\n");
+    printf("\n");
 }
 
 int main(int argc, char** argv)
@@ -106,6 +141,29 @@ int main(int argc, char** argv)
         Key* masterKey = hashWord.generateKey();
         hashWord.saveMasterKey(masterKey, password1);
 
+        hashWord.shred(masterKey);
+        free(masterKey);
+    }
+    else if (!strncmp("changepassword", command, 14))
+    {
+        string oldMasterPassword = getPassword("Old Master Password");
+        string newMasterPassword = getPassword("New Master Password");
+        string newMasterPassword2 = getPassword("Retype new Master password");
+
+        if (newMasterPassword != newMasterPassword2)
+        {
+            printf("Passwords do not match\n");
+            return 1;
+        }
+
+        Key* masterKey = hashWord.getMasterKey(oldMasterPassword);
+        if (masterKey == NULL)
+        {
+            printf("HashWord: Unable to unlock Master Key\n");
+            return 1;
+        }
+
+        hashWord.saveMasterKey(masterKey, newMasterPassword);
         hashWord.shred(masterKey);
         free(masterKey);
     }
@@ -156,9 +214,12 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        hashWord.getPassword(masterKey, string(domain));
+        PasswordDetails details;
+        hashWord.getPassword(masterKey, string(domain), details);
         hashWord.shred(masterKey);
         free(masterKey);
+
+        showPassword(details.username, details.password);
     }
     else if (!strncmp("generatepassword", command, 16))
     {
@@ -188,9 +249,10 @@ int main(int argc, char** argv)
         }
 
         string password = hashWord.generatePassword(16);
-        printf("HashWord: New Password: '%s'\n", password.c_str());
 
         hashWord.savePassword(masterKey, string(domain), string(user), password);
+
+        showPassword(string(user), password);
 
         hashWord.shred(masterKey);
         free(masterKey);
