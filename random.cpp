@@ -1,6 +1,9 @@
 /*
+ *
  * Implementation of the ISAAC Cryptographic Pseudo Number Generator
+ *
  */
+
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,7 +26,15 @@ bool Random::init()
 
 #ifdef __APPLE__
 
-    getentropy(seed, sizeof(uint32_t) * 256);
+    int i;
+    for (i = 0; i < 256; i += 64)
+    {
+        int res = getentropy(&(seed[i]), sizeof(uint32_t) * 64);
+        if (res != 0)
+        {
+            return false;
+        }
+    }
 
 #else
     FILE* fd;
@@ -54,14 +65,14 @@ bool Random::init()
 
 void Random::mix(uint32_t* s)
 {
-    s[0]^=s[1]<<11;  s[3]+=s[0]; s[1]+=s[2];
-    s[1]^=s[2]>>2;  s[4]+=s[1]; s[2]+=s[3];
-    s[2]^=s[3]<<8;   s[5]+=s[2]; s[3]+=s[4];
-    s[3]^=s[4]>>16; s[6]+=s[3]; s[4]+=s[5];
-    s[4]^=s[5]<<10;  s[7]+=s[4]; s[5]+=s[6];
-    s[5]^=s[6]>>4;  s[0]+=s[5]; s[6]+=s[7];
-    s[6]^=s[7]<<8;   s[1]+=s[6]; s[7]+=s[0];
-    s[7]^=s[0]>>9;  s[2]+=s[7]; s[0]+=s[1];
+    s[0] ^= s[1] << 11; s[3] += s[0]; s[1] += s[2];
+    s[1] ^= s[2] >> 2;  s[4] += s[1]; s[2] += s[3];
+    s[2] ^= s[3] << 8;  s[5] += s[2]; s[3] += s[4];
+    s[3] ^= s[4] >> 16; s[6] += s[3]; s[4] += s[5];
+    s[4] ^= s[5] << 10; s[7] += s[4]; s[5] += s[6];
+    s[5] ^= s[6] >> 4;  s[0] += s[5]; s[6] += s[7];
+    s[6] ^= s[7] << 8;  s[1] += s[6]; s[7] += s[0];
+    s[7] ^= s[0] >> 9;  s[2] += s[7]; s[0] += s[1];
 }
 
 bool Random::init(uint32_t* seed)
@@ -136,12 +147,15 @@ void Random::generateMore()
             case 0:
                 m_aa = m_aa ^ (m_aa << 13);
                 break;
+
             case 1:
                 m_aa = m_aa ^ (m_aa >> 6);
                 break;
+
             case 2:
                 m_aa = m_aa ^ (m_aa << 2);
                 break;
+
             case 3:
                 m_aa = m_aa ^ (m_aa >> 16);
                 break;
