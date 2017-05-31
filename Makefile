@@ -2,7 +2,7 @@ TOP=.
 TGT=hashword
 
 SUBDIRS=openaes sha
-SRCS=main.cpp hashword.cpp database.cpp base64.cpp utils.cpp data.cpp random.cpp
+SRCS=main.cpp hashword.cpp cryptoutils.cpp database.cpp base64.cpp utils.cpp data.cpp random.cpp ui.cpp
 
 all: TARGET=all
 all: $(TGT)

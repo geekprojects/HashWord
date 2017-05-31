@@ -4,109 +4,55 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 
-#include <termios.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
+#include <getopt.h>
 
 #include "hashword.h"
+#include "ui.h"
 
 using namespace std;
 
-#ifdef __APPLE__
-#define TCGETA TIOCGETA
-#define TCSETA TIOCSETA
-#endif
-
-void setPasswordMode(struct termios* tsave)
+static const struct option g_options[] =
 {
-    struct termios chgit;
-
-    // Save the current state
-    if (ioctl(0, TCGETA, tsave) == -1)
-    {
-        printf("Failed to store terminal settings!\n");
-        exit(1);
-    }
-    chgit = *tsave;
-
-    // Turn off canonial mode and echoing
-    chgit.c_lflag &= ~(ICANON|ECHO);
-    chgit.c_cc[VMIN] = 1;
-    chgit.c_cc[VTIME] = 0;
-    if (ioctl(0, TCSETA, &chgit) == -1)
-    {
-        printf("Failed to modify terminal settings!\n");
-        exit(1);
-    }
-}
-
-void resetMode(struct termios* tsave)
-{
-    if (ioctl(0, TCSETA, tsave) == -1)
-    {
-        printf("Failed to restore terminal settings!\n");
-        exit(1);
-    }
-}
-
-string getPassword(string prompt)
-{
-    string password = "";
-    struct termios tsave;
-
-    printf("%s: ", prompt.c_str());
-    fflush(stdout);
-
-    setPasswordMode(&tsave);
-
-    while (1)
-    {
-        int c = getchar();
-        /* CR is ascii value 13, interrupt is -1, control-c is 3 */
-        if (c == '\r' || c == '\n' || c == '\b' || c == -1 || c == 3)
-        {
-            break;
-        }
-
-        if (isprint(c))
-        {
-            password += c;
-        }
-    }
-
-    printf("\n");
-
-    resetMode(&tsave);
-
-    return password;
-}
-
-void showPassword(string username, string password)
-{
-    struct termios tsave;
-
-    printf("Username: %s\n", username.c_str());
-    printf("Password: %s\n", password.c_str());
-    printf("Press a key to hide the password");
-    fflush(stdout);
-
-    setPasswordMode(&tsave);
-    getchar();
-
-    resetMode(&tsave);
-
-    printf("%c[2A", 0x1B);
-    printf("%c[1K", 0x1B);
-    printf("%c[1B", 0x1B);
-    printf("%c[1K", 0x1B);
-    printf("\n");
-    printf("\n");
-}
+    { "user",    required_argument, NULL, 'u' },
+    { NULL,      0,                 NULL, 0 }
+};
 
 int main(int argc, char** argv)
 {
-    HashWord hashWord("ian");
+    const char* user = getenv("LOGNAME");
+
+    while (true)
+    {
+        int c = getopt_long(
+            argc,
+            argv,
+            "u:",
+            g_options,
+            NULL);
+
+        if (c == -1)
+        {
+            break;
+        }
+        switch (c)
+        {
+            case 'u':
+                user = optarg;
+                break;
+        }
+    }
+
+    if (user == NULL)
+    {
+        printf("HashWord: No user specified\n");
+        return 1;
+    }
+
+    int remaining_argc = argc - optind;
+
+    HashWord hashWord(user);
 
     bool res;
     res = hashWord.open();
@@ -116,12 +62,12 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    if (argc < 2)
+    if (remaining_argc < 1)
     {
         return 1;
     }
 
-    char* command = argv[1];
+    char* command = argv[optind];
 
     if (!strncmp("init", command, 4))
     {
@@ -138,10 +84,10 @@ int main(int argc, char** argv)
             printf("Passwords do not match\n");
             return 1;
         }
-        Key* masterKey = hashWord.generateKey();
+        Key* masterKey = hashWord.getCrypto()->generateKey();
         hashWord.saveMasterKey(masterKey, password1);
 
-        hashWord.shred(masterKey);
+        hashWord.getCrypto()->shred(masterKey);
         free(masterKey);
     }
     else if (!strncmp("changepassword", command, 14))
@@ -164,7 +110,7 @@ int main(int argc, char** argv)
         }
 
         hashWord.saveMasterKey(masterKey, newMasterPassword);
-        hashWord.shred(masterKey);
+        hashWord.getCrypto()->shred(masterKey);
         free(masterKey);
     }
     else if (!strncmp("savepassword", command, 12))
@@ -187,6 +133,9 @@ int main(int argc, char** argv)
         }
         string masterPassword = getPassword("Master Password");
         string domainPassword = getPassword("Domain Password");
+
+        checkPassword(domainPassword);
+
         Key* masterKey = hashWord.getMasterKey(masterPassword);
         if (masterKey == NULL)
         {
@@ -195,7 +144,7 @@ int main(int argc, char** argv)
         }
         hashWord.savePassword(masterKey, string(domain), string(user), domainPassword);
 
-        hashWord.shred(masterKey);
+        hashWord.getCrypto()->shred(masterKey);
         free(masterKey);
     }
     else if (!strncmp("getpassword", command, 11))
@@ -216,7 +165,7 @@ int main(int argc, char** argv)
 
         PasswordDetails details;
         hashWord.getPassword(masterKey, string(domain), details);
-        hashWord.shred(masterKey);
+        hashWord.getCrypto()->shred(masterKey);
         free(masterKey);
 
         showPassword(details.username, details.password);
@@ -248,13 +197,14 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        string password = hashWord.generatePassword(16);
+        string password = hashWord.getCrypto()->generatePassword(16);
+        checkPassword(password);
 
         hashWord.savePassword(masterKey, string(domain), string(user), password);
 
         showPassword(string(user), password);
 
-        hashWord.shred(masterKey);
+        hashWord.getCrypto()->shred(masterKey);
         free(masterKey);
     }
 
