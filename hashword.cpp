@@ -215,8 +215,6 @@ bool HashWord::savePassword(Key* masterKey, string domain, string domainUser, st
 {
     Key* salt = m_crypto.generateKey();
     Key* passwordKey = m_crypto.deriveKey(salt, m_globalSalt, m_username + domain);
-printf("HashWord::savePassword: salt:\n");
-hexdump((char*)salt->data, salt->length);
 
     string domainUserEnc = m_crypto.encryptValue(masterKey, passwordKey, domainUser);
     string domainPasswordEnc = m_crypto.encryptValue(masterKey, passwordKey, domainPassword);
