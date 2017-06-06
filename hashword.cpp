@@ -12,10 +12,10 @@
 
 using namespace std;
 
-HashWord::HashWord(string username)
+HashWord::HashWord(string username, string dbpath)
     : m_crypto(username)
 {
-    m_database = new Database("hashword.db");
+    m_database = new Database(dbpath);
 
     m_username = username;
 }
@@ -59,8 +59,9 @@ bool HashWord::open()
     passwords.name = "passwords";
     passwords.columns.insert(Column("id", "TEXT", true));
     passwords.columns.insert(Column("salt_enc", "TEXT", false));
-    passwords.columns.insert(Column("domain_user_enc", "TEXT", false));
+    passwords.columns.insert(Column("domain_info_enc", "TEXT", false));
     passwords.columns.insert(Column("domain_password_enc", "TEXT", false));
+    passwords.columns.insert(Column("updated_enc", "TEXT", false));
     tables.push_back(passwords);
 
     m_database->checkSchema(tables);
@@ -227,14 +228,20 @@ bool HashWord::savePassword(Key* masterKey, string domain, string domainUser, st
     Data* saltEnc = m_crypto.encryptMultiple(masterKey, NULL, salt);
     string saltEnc64 = base64_encode(saltEnc->data, saltEnc->length);
 
+    time_t now = time(NULL);
+    char updatedStr[16];
+    snprintf(updatedStr, 16, "%lu", now);
+    string updatedEnc64 = m_crypto.encryptValue(masterKey, NULL, updatedStr);
+
     vector<string> args;
     args.push_back(idHash);
     args.push_back(saltEnc64);
     args.push_back(domainUserEnc);
     args.push_back(domainPasswordEnc);
+    args.push_back(updatedEnc64);
 
     m_database->execute(
-        "INSERT OR REPLACE INTO passwords (id, salt_enc, domain_user_enc, domain_password_enc) VALUES (?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO passwords (id, salt_enc, domain_info_enc, domain_password_enc, updated_enc) VALUES (?, ?, ?, ?, ?)",
         args);
 
     return true;
@@ -250,7 +257,7 @@ bool HashWord::getPassword(Key* masterKey, std::string domain, PasswordDetails& 
     string idHash = m_crypto.hash(masterKey, m_username + ":" + domain);
 
     PreparedStatement* stmt = m_database->prepareStatement(
-        "SELECT domain_user_enc, domain_password_enc, salt_enc FROM passwords WHERE id=?");
+        "SELECT domain_info_enc, domain_password_enc, salt_enc FROM passwords WHERE id=?");
     stmt->bindString(1, idHash);
 
     bool res;

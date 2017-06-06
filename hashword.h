@@ -8,6 +8,7 @@
 struct PasswordDetails
 {
     std::string username;
+    std::string info;
     std::string password;
 };
 
@@ -24,7 +25,7 @@ class HashWord
     void setConfig(std::string name, std::string value);
 
  public:
-    HashWord(std::string username);
+    HashWord(std::string username, std::string dbpath);
     ~HashWord();
 
     bool open();
