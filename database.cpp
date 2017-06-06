@@ -49,7 +49,6 @@ bool Database::open()
         {
             if (errno == ENOENT)
             {
-                printf("Database::open: Creating dir\n");
                 res = mkdir(dir.c_str(), 0755);
                 if (res == -1)
                 {
@@ -64,7 +63,6 @@ bool Database::open()
             }
         }
     }
-
 
     int res;
     res = sqlite3_open(m_path.c_str(), &m_db);
@@ -191,9 +189,11 @@ string primaryKeys = "";
                 it = columns.find(column);
                 if (it == columns.end())
                 {
+/*
                     printf(
                         "Database::checkSchema: Column missing: %s\n",
                         column.c_str());
+*/
                     string alterSql =
                         "ALTER TABLE " + table + " ADD COLUMN " + column;
 /*
