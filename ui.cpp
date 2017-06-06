@@ -107,6 +107,24 @@ void showPassword(string username, string password)
     printf("\n");
 }
 
+string getScriptPassword()
+{
+    char buffer[1024];
+    char* res;
+
+    res = fgets(buffer, 1024, stdin);
+    if (res == NULL)
+    {
+        return "";
+    }
+    int len = strlen(buffer);
+    if (buffer[len - 1] == '\n')
+    {
+        buffer[len - 1] = 0;
+    }
+    return string(buffer);
+}
+
 bool checkPassword(string password)
 {
     bool lower = false;

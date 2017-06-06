@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <sys/stat.h>
 
 #include <getopt.h>
 
@@ -13,15 +14,14 @@
 
 using namespace std;
 
-static const struct option g_options[] =
+struct Options
 {
-    { "user",    required_argument, NULL, 'u' },
-    { NULL,      0,                 NULL, 0 }
+    bool script;
 };
 
-typedef bool(*commandFunc_t)(HashWord*, int, char**);
+typedef bool(*commandFunc_t)(HashWord*, Options options, int, char**);
 
-static bool initCommand(HashWord* hashWord, int argc, char** argv)
+static bool initCommand(HashWord* hashWord, Options options, int argc, char** argv)
 {
     if (hashWord->hasMasterKey())
     {
@@ -29,12 +29,20 @@ static bool initCommand(HashWord* hashWord, int argc, char** argv)
         return 1;
     }
 
-    string password1 = getPassword("New Master password");
-    string password2 = getPassword("Retype new Master password");
-    if (password1 != password2)
+    string password1;
+    if (!options.script)
     {
-        printf("Passwords do not match\n");
-        return false;
+        password1 = getPassword("New Master password");
+        string password2 = getPassword("Retype new Master password");
+        if (password1 != password2)
+        {
+            printf("Passwords do not match\n");
+            return false;
+        }
+    }
+    else
+    {
+        password1 = getScriptPassword();
     }
 
     Key* masterKey = hashWord->getCrypto()->generateKey();
@@ -46,7 +54,7 @@ static bool initCommand(HashWord* hashWord, int argc, char** argv)
     return true;
 }
 
-bool changePasswordCommand(HashWord* hashWord, int argc, char** argv)
+bool changePasswordCommand(HashWord* hashWord, Options options, int argc, char** argv)
 {
     string oldMasterPassword = getPassword("Old Master Password");
     string newMasterPassword = getPassword("New Master Password");
@@ -72,7 +80,7 @@ bool changePasswordCommand(HashWord* hashWord, int argc, char** argv)
     return true;
 }
 
-bool savePasswordCommand(HashWord* hashWord, int argc, char** argv)
+bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** argv)
 {
     if (argc < 1)
     {
@@ -83,15 +91,26 @@ bool savePasswordCommand(HashWord* hashWord, int argc, char** argv)
     const char* domain = "";
     if (argc == 1)
     {
-        domain = argv[2];
+        domain = argv[0];
     }
     else if (argc == 2)
     {
         domain = argv[0];
         user = argv[1];
     }
-    string masterPassword = getPassword("Master Password");
-    string domainPassword = getPassword("Domain Password");
+
+    string masterPassword;
+    string domainPassword;
+    if (!options.script)
+    {
+        masterPassword = getPassword("Master Password");
+        domainPassword = getPassword("Domain Password");
+    }
+    else
+    {
+        masterPassword = getScriptPassword();
+        domainPassword = getScriptPassword();
+    }
 
     checkPassword(domainPassword);
 
@@ -109,7 +128,7 @@ bool savePasswordCommand(HashWord* hashWord, int argc, char** argv)
     return true;
 }
 
-bool getPasswordCommand(HashWord* hashWord, int argc, char** argv)
+bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** argv)
 {
     if (argc < 1)
     {
@@ -117,7 +136,16 @@ bool getPasswordCommand(HashWord* hashWord, int argc, char** argv)
     }
 
     char* domain = argv[0];
-    string masterPassword = getPassword("Master Password");
+    string masterPassword;
+    if (!options.script)
+    {
+        masterPassword = getPassword("Master Password");
+    }
+    else
+    {
+        masterPassword = getScriptPassword();
+    }
+
     Key* masterKey = hashWord->getMasterKey(masterPassword);
     if (masterKey == NULL)
     {
@@ -130,12 +158,20 @@ bool getPasswordCommand(HashWord* hashWord, int argc, char** argv)
     hashWord->getCrypto()->shred(masterKey);
     free(masterKey);
 
-    showPassword(details.username, details.password);
+    if (!options.script)
+    {
+        showPassword(details.username, details.password);
+    }
+    else
+    {
+        printf("%s\n", details.username.c_str());
+        printf("%s\n", details.password.c_str());
+    }
  
     return true;
 }
 
-bool generatePasswordCommand(HashWord* hashWord, int argc, char** argv)
+bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char** argv)
 {
     if (argc < 1)
     {
@@ -190,16 +226,34 @@ static const command g_commands[] =
     { "generatepassword", generatePasswordCommand }
 };
 
+static const struct option g_options[] =
+{
+    { "user",     required_argument, NULL, 'u' },
+    { "database", required_argument, NULL, 'd' },
+    { "script",   required_argument, NULL, 's' },
+    { NULL,       0,                 NULL, 0 }
+};
+
 int main(int argc, char** argv)
 {
     const char* user = getenv("LOGNAME");
+
+    const char* dbpath = NULL;
+    const char* home = getenv("HOME");
+    if (home != NULL)
+    {
+        dbpath = (string(home) + "/.hashword/hashword.db").c_str();
+    }
+
+    Options options;
+    options.script = false;
 
     while (true)
     {
         int c = getopt_long(
             argc,
             argv,
-            "u:",
+            "u:d:s",
             g_options,
             NULL);
 
@@ -212,6 +266,12 @@ int main(int argc, char** argv)
             case 'u':
                 user = optarg;
                 break;
+            case 'd':
+                dbpath = optarg;
+                break;
+            case 's':
+                options.script = true;
+                break;
         }
     }
 
@@ -221,7 +281,16 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    HashWord hashWord(user);
+    if (dbpath == NULL)
+    {
+        printf("HashWord: No database path specified\n");
+        return 1;
+    }
+
+    // Only read and writable by the current user, no one else
+    umask(077);
+
+    HashWord hashWord(user, dbpath);
 
     bool res;
     res = hashWord.open();
@@ -244,7 +313,7 @@ int main(int argc, char** argv)
         const command* cmd = &(g_commands[i]);
         if (!strcmp(cmd->name, argv[optind]))
         {
-            cmd->func(&hashWord, commandArgc, argv + optind + 1);
+            cmd->func(&hashWord, options, commandArgc, argv + optind + 1);
             break;
         }
     }

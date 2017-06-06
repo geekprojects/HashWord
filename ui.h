@@ -7,6 +7,6 @@ std::string getPassword(std::string prompt);
 void showPassword(std::string username, std::string password);
 bool checkPassword(std::string password);
 
-
+std::string getScriptPassword();
 
 #endif
