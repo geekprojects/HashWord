@@ -389,7 +389,7 @@ void CryptoUtils::fillRandom(uint8_t* data, size_t length)
     size_t i;
     for (i = 0; i < length; i++)
     {
-        data[i] = random() % 256;
+        data[i] = m_random.rand32() % 256;
     }
 }
 
