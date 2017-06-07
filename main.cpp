@@ -135,7 +135,13 @@ bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** ar
         return false;
     }
 
-    char* domain = argv[0];
+    const char* domain = argv[0];
+    const char* user = "";
+    if (argc > 1)
+    {
+        user = argv[1];
+    }
+
     string masterPassword;
     if (!options.script)
     {
@@ -154,7 +160,7 @@ bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** ar
     }
 
     PasswordDetails details;
-    hashWord->getPassword(masterKey, string(domain), details);
+    hashWord->getPassword(masterKey, string(domain), string(user), details);
     hashWord->getCrypto()->shred(masterKey);
     free(masterKey);
 

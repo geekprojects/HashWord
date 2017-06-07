@@ -214,8 +214,13 @@ Key* HashWord::getMasterKey(string password)
 
 bool HashWord::savePassword(Key* masterKey, string domain, string domainUser, string domainPassword)
 {
+    if (domainUser.length() == 0)
+    {
+        domainUser = m_username;
+    }
+
     Key* salt = m_crypto.generateKey();
-    Key* passwordKey = m_crypto.deriveKey(salt, m_globalSalt, m_username + domain);
+    Key* passwordKey = m_crypto.deriveKey(salt, m_globalSalt, domainUser + domain);
 
     string domainUserEnc = m_crypto.encryptValue(masterKey, passwordKey, domainUser);
     string domainPasswordEnc = m_crypto.encryptValue(masterKey, passwordKey, domainPassword);
@@ -223,7 +228,7 @@ bool HashWord::savePassword(Key* masterKey, string domain, string domainUser, st
     m_crypto.shred(passwordKey);
     free(passwordKey);
 
-    string idHash = m_crypto.hash(masterKey, m_username + ":" + domain);
+    string idHash = m_crypto.hash(masterKey, m_username + ":" + domainUser + ":" + domain);
 
     Data* saltEnc = m_crypto.encryptMultiple(masterKey, NULL, salt);
     string saltEnc64 = base64_encode(saltEnc->data, saltEnc->length);
@@ -252,9 +257,14 @@ bool HashWord::savePassword(Key* masterKey, string domain, std::string domainPas
     return savePassword(masterKey, domain, "", domainPassword);
 }
 
-bool HashWord::getPassword(Key* masterKey, std::string domain, PasswordDetails& details)
+bool HashWord::getPassword(Key* masterKey, string domain, string user, PasswordDetails& details)
 {
-    string idHash = m_crypto.hash(masterKey, m_username + ":" + domain);
+    if (user.length() == 0)
+    {
+        user = m_username;
+    }
+
+    string idHash = m_crypto.hash(masterKey, m_username + ":" + user + ":" + domain);
 
     PreparedStatement* stmt = m_database->prepareStatement(
         "SELECT domain_info_enc, domain_password_enc, salt_enc FROM passwords WHERE id=?");
@@ -287,7 +297,7 @@ bool HashWord::getPassword(Key* masterKey, std::string domain, PasswordDetails& 
 
     Key* salt = (Key*)m_crypto.decryptMultiple(masterKey, NULL, saltEnc64);
 
-    Key* passwordKey = m_crypto.deriveKey(salt, m_globalSalt, m_username + domain);
+    Key* passwordKey = m_crypto.deriveKey(salt, m_globalSalt, user + domain);
     m_crypto.shred(salt);
     free(salt);
 
