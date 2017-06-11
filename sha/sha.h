@@ -86,10 +86,6 @@
 #ifndef _SHA_enum_
 #define _SHA_enum_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*
  *  All SHA functions return one of these values.
  */
@@ -331,8 +327,5 @@ extern int hkdfResult(HKDFContext *context,
                       const unsigned char *info, int info_len,
                       uint8_t okm[USHAMaxHashSize], int okm_len);
 
-#ifdef __cplusplus
-}
-#endif
 #endif /* _SHA_H_ */
 
