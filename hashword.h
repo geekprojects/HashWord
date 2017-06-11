@@ -5,6 +5,14 @@
 #include "data.h"
 #include "cryptoutils.h"
 
+#define CONFIG_GLOBAL_SALT "globalSalt"
+#define CONFIG_ROUNDS "rounds"
+
+#define HASHWORD_KD_HKDF 1 // SHA512 Key derivation
+#define HASHWORD_KD_SCRYPT 2 // Scrypt Key Derivation
+
+#define HASHWORD_KD HASHWORD_KD_SCRYPT
+
 struct PasswordDetails
 {
     std::string username;
@@ -20,9 +28,13 @@ class HashWord
 
     std::string m_username;
     Key* m_globalSalt;
+    int m_rounds;
 
+    bool hasConfig(std::string name);
     std::string getConfig(std::string name);
+    int getConfigInt(std::string name);
     void setConfig(std::string name, std::string value);
+    void setConfig(std::string name, int value);
 
  public:
     HashWord(std::string username, std::string dbpath);

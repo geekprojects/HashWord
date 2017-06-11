@@ -12,9 +12,11 @@ struct Data
     size_t length;
     uint8_t data[0];
 
-    std::string base64();
-
     static Data* alloc(size_t size);
+
+    std::string encode();
+    static std::string encode(uint8_t* data, unsigned int len);
+    static Data* decode(std::string enc);
 };
 
 struct Key : public Data

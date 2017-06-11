@@ -5,19 +5,20 @@
 #include <string.h>
 
 #include "hashword.h"
-#include "base64.h"
 #include "utils.h"
 
-#define AES_ROUNDS 10000
+#define ROUNDS_DEFAULT 50
 
 using namespace std;
 
 HashWord::HashWord(string username, string dbpath)
-    : m_crypto(username)
+    : m_crypto()
 {
     m_database = new Database(dbpath);
 
     m_username = username;
+
+    m_rounds = ROUNDS_DEFAULT;
 }
 
 HashWord::~HashWord()
@@ -66,16 +67,26 @@ bool HashWord::open()
 
     m_database->checkSchema(tables);
 
-    string globalSalt64 = getConfig("globalSalt");
-    if (globalSalt64.length() == 0)
+    if (hasConfig(CONFIG_GLOBAL_SALT))
     {
-        m_globalSalt = m_crypto.generateKey();
-        globalSalt64 = m_globalSalt->base64();
-        setConfig("globalSalt", globalSalt64);
+        string globalSalt64 = getConfig(CONFIG_GLOBAL_SALT);
+        m_globalSalt = m_crypto.decodeKey(globalSalt64);
     }
     else
     {
-        m_globalSalt = m_crypto.decodeKey(globalSalt64);
+        m_globalSalt = m_crypto.generateKey();
+        string globalSalt64 = m_globalSalt->encode();
+        setConfig(CONFIG_GLOBAL_SALT, globalSalt64);
+    }
+
+    if (hasConfig(CONFIG_ROUNDS))
+    {
+        m_rounds = getConfigInt(CONFIG_ROUNDS);
+    }
+    else
+    {
+        m_rounds = ROUNDS_DEFAULT;
+        setConfig(CONFIG_ROUNDS, m_rounds);
     }
 
     return true;
@@ -99,14 +110,14 @@ bool HashWord::saveMasterKey(Key* masterKey, string password)
 
     Key* userKey = m_crypto.deriveKey(salt, m_globalSalt, m_username + password);
 
-    Data* masterKeyEnc = m_crypto.encryptMultiple(userKey, NULL, (Data*)masterKey);
-    string masterKey64 = base64_encode(masterKeyEnc->data, masterKeyEnc->length);
+    Data* masterKeyEnc = m_crypto.encryptMultiple(userKey, NULL, (Data*)masterKey, m_rounds);
+    string masterKey64 = masterKeyEnc->encode();
 
     m_crypto.shred(masterKeyEnc);
     free(masterKeyEnc);
 
     string userHash = m_crypto.hash(m_globalSalt, m_username);
-    string salt64 = base64_encode(salt->data, salt->length);
+    string salt64 = salt->encode();
 
     string checkHash = m_crypto.hash(masterKey, salt64);
 
@@ -128,7 +139,6 @@ bool HashWord::saveMasterKey(Key* masterKey, string password)
 
     return true;
 }
-
 
 bool HashWord::hasMasterKey()
 {
@@ -192,7 +202,7 @@ Key* HashWord::getMasterKey(string password)
 
     Key* userKey = m_crypto.deriveKey(salt, m_globalSalt, m_username + password);
 
-    Key* masterKey = (Key*)m_crypto.decryptMultiple(userKey, NULL, masterKey64);
+    Key* masterKey = (Key*)m_crypto.decryptMultiple(userKey, NULL, masterKey64, m_rounds);
 
     string checkHash2 = m_crypto.hash(masterKey, salt64);
 
@@ -222,21 +232,21 @@ bool HashWord::savePassword(Key* masterKey, string domain, string domainUser, st
     Key* salt = m_crypto.generateKey();
     Key* passwordKey = m_crypto.deriveKey(salt, m_globalSalt, domainUser + domain);
 
-    string domainUserEnc = m_crypto.encryptValue(masterKey, passwordKey, domainUser);
-    string domainPasswordEnc = m_crypto.encryptValue(masterKey, passwordKey, domainPassword);
+    string domainUserEnc = m_crypto.encryptValue(masterKey, passwordKey, domainUser, m_rounds);
+    string domainPasswordEnc = m_crypto.encryptValue(masterKey, passwordKey, domainPassword, m_rounds);
 
     m_crypto.shred(passwordKey);
     free(passwordKey);
 
     string idHash = m_crypto.hash(masterKey, m_username + ":" + domainUser + ":" + domain);
 
-    Data* saltEnc = m_crypto.encryptMultiple(masterKey, NULL, salt);
-    string saltEnc64 = base64_encode(saltEnc->data, saltEnc->length);
+    Data* saltEnc = m_crypto.encryptMultiple(masterKey, NULL, salt, m_rounds);
+    string saltEnc64 = saltEnc->encode();
 
     time_t now = time(NULL);
     char updatedStr[16];
     snprintf(updatedStr, 16, "%lu", now);
-    string updatedEnc64 = m_crypto.encryptValue(masterKey, NULL, updatedStr);
+    string updatedEnc64 = m_crypto.encryptValue(masterKey, NULL, updatedStr, m_rounds);
 
     vector<string> args;
     args.push_back(idHash);
@@ -295,19 +305,38 @@ bool HashWord::getPassword(Key* masterKey, string domain, string user, PasswordD
 
     delete stmt;
 
-    Key* salt = (Key*)m_crypto.decryptMultiple(masterKey, NULL, saltEnc64);
+    Key* salt = (Key*)m_crypto.decryptMultiple(masterKey, NULL, saltEnc64, m_rounds);
 
     Key* passwordKey = m_crypto.deriveKey(salt, m_globalSalt, user + domain);
     m_crypto.shred(salt);
     free(salt);
 
-    details.username = m_crypto.decryptValue(masterKey, passwordKey, domainUserEnc64);
-    details.password = m_crypto.decryptValue(masterKey, passwordKey, domainPasswordEnc64);
+    details.username = m_crypto.decryptValue(masterKey, passwordKey, domainUserEnc64, m_rounds);
+    details.password = m_crypto.decryptValue(masterKey, passwordKey, domainPasswordEnc64, m_rounds);
 
     m_crypto.shred(passwordKey);
     free(passwordKey);
 
     return true;
+}
+
+bool HashWord::hasConfig(std::string name)
+{
+    PreparedStatement* stmt = m_database->prepareStatement("SELECT 1 FROM config WHERE name=?");
+    stmt->bindString(1, name);
+
+    bool res;
+    res = stmt->executeQuery();
+    if (!res)
+    {
+        return false;
+    }
+
+    res = stmt->step();
+
+    delete stmt;
+
+    return res;
 }
 
 std::string HashWord::getConfig(std::string name)
@@ -334,6 +363,13 @@ std::string HashWord::getConfig(std::string name)
     return value;
 }
 
+int HashWord::getConfigInt(std::string name)
+{
+    string valueStr = getConfig(name);
+
+    return atoi(valueStr.c_str());
+}
+
 void HashWord::setConfig(std::string name, std::string value)
 {
     vector<string> args;
@@ -342,4 +378,10 @@ void HashWord::setConfig(std::string name, std::string value)
     m_database->execute("INSERT INTO config (name, value) VALUES (?, ?)", args);
 }
 
+void HashWord::setConfig(std::string name, int value)
+{
+    char valueStr[64];
+    snprintf(valueStr, 64, "%d", value);
+    setConfig(name, valueStr);
+}
 

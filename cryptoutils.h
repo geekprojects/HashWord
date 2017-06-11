@@ -6,15 +6,17 @@
 #include "openaes/oaes_lib.h"
 #include "sha/sha.h"
 
+#define IV_LENGTH 16
+
 class CryptoUtils
 {
  private:
     Random m_random;
 
-    uint8_t m_iv[OAES_BLOCK_SIZE];
+    void fillIV(Data* data);
 
  public:
-    CryptoUtils(std::string ivstr);
+    CryptoUtils();
     ~CryptoUtils();
 
     Key* deriveKey(Key* salt, Key* salt2, std::string ikm);
@@ -23,14 +25,14 @@ class CryptoUtils
     std::string encrypt64(Key* key, Data* data);
     Data* encrypt(Key* key, uint8_t* in, size_t inLength);
     Data* encrypt(Key* key, Data* data);
-    Data* encryptMultiple(Key* key1, Key* key2, Data* value);
-    std::string encryptValue(Key* masterKey, Key* valueKey, std::string value);
+    Data* encryptMultiple(Key* key1, Key* key2, Data* value, int rounds);
+    std::string encryptValue(Key* masterKey, Key* valueKey, std::string value, int rounds);
 
     Data* decrypt(Key* key, Data* encData);
     Data* decrypt(Key* key, std::string enc64);
-    Data* decryptMultiple(Key* key1, Key* key2, Data* enc);
-    Data* decryptMultiple(Key* key1, Key* key2, std::string enc64);
-    std::string decryptValue(Key* masterKey, Key* valueKey, std::string enc64);
+    Data* decryptMultiple(Key* key1, Key* key2, Data* enc, int rounds);
+    Data* decryptMultiple(Key* key1, Key* key2, std::string enc64, int rounds);
+    std::string decryptValue(Key* masterKey, Key* valueKey, std::string enc64, int rounds);
 
     Key* decodeKey(std::string key64);
     std::string hash(Key* salt, std::string str);
