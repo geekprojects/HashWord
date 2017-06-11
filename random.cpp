@@ -8,7 +8,9 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-#ifdef __APPLE__
+#include "config.h"
+
+#if HAVE_GETENTROPY
 #include <sys/types.h>
 #include <sys/random.h>
 #endif
@@ -24,7 +26,7 @@ bool Random::init()
 {
     uint32_t seed[256];
 
-#ifdef __APPLE__
+#if HAVE_GETENTROPY
 
     int i;
     for (i = 0; i < 256; i += 64)
