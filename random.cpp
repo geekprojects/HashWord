@@ -1,7 +1,6 @@
 /*
- *
  * Implementation of the ISAAC Cryptographic Pseudo Number Generator
- *
+ * Based on Public Domain implementation by Bob Jenkins
  */
 
 #include <time.h>
