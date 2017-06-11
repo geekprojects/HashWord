@@ -1,0 +1,18 @@
+
+language: cpp
+
+addons:
+  apt:
+    packages:
+      - libsqlite3-dev
+
+script: make && ./test.sh
+
+compiler:
+  - clang
+  - gcc
+
+os:
+  - linux
+  - osx
+

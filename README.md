@@ -1,6 +1,8 @@
 HashWord
 ===
 
+[![Build Status](https://travis-ci.org/geekprojects/hashword.svg)](https://travis-ci.org/geekprojects/libgeek)
+
 HashWord is a simple, secure command line password manager based on standard secure techniques.
 
 * ISAAC CSPRNG
