@@ -1,6 +1,7 @@
 #!/bin/bash
 
 TESTDB=test.db
+TESTUSER=testuser
 MASTERPW=test1234
 DOMAIN1_NAME=example.com
 DOMAIN1_PW1=3xampl3
@@ -17,7 +18,7 @@ function savepassword()
     domain=$1
     user=$2
     password=$3
-    echo -e "${MASTERPW}\n${password}" | ./hashword --database ${TESTDB} -s save "${domain}" "${user}"
+    echo -e "${MASTERPW}\n${password}" | ./hashword --database ${TESTDB} --user ${TESTUSER} -s save "${domain}" "${user}"
 }
 
 function getpassword()
@@ -25,7 +26,7 @@ function getpassword()
     domain=$1
     user=$2
 
-    results=`echo "${MASTERPW}" | ./hashword --database ${TESTDB} -s get $domain ${user}|tr '\n' ':'`
+    results=`echo "${MASTERPW}" | ./hashword --database ${TESTDB} --user ${TESTUSER} -s get $domain ${user}|tr '\n' ':'`
     results_pw=`echo $results|cut -f2 -d':'`
     echo $results_pw
 }
@@ -49,7 +50,7 @@ function verifypassword()
 
 rm -f $TESTDB
 
-echo $MASTERPW | ./hashword --database ${TESTDB} -s init
+echo $MASTERPW | ./hashword --database ${TESTDB} --user ${TESTUSER} -s init
 
 echo "Test: Set entry password"
 savepassword $DOMAIN1_NAME '' $DOMAIN1_PW1
