@@ -9,6 +9,7 @@
 #include <sys/time.h>
 
 #ifdef __APPLE__
+#include <sys/types.h>
 #include <sys/random.h>
 #endif
 
