@@ -1,6 +1,7 @@
 *.o
 *.asm
 *.dSYM
+*.db
 
 hashword
 hashword.db
