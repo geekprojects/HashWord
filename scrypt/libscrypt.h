@@ -6,9 +6,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#ifdef __cplusplus
-extern "C"{
-#endif
 
 /**
  * crypto_scrypt(passwd, passwdlen, salt, saltlen, N, r, p, buf, buflen):
@@ -46,10 +43,6 @@ int libscrypt_hash(char *dst, const char* passphrase, uint32_t N, uint8_t r,
 
 /* Checks a given MCF against a password */
 int libscrypt_check(char *mcf, const char *password);
-
-#ifdef __cplusplus
-}
-#endif
 
 /* Sane default values */
 #define SCRYPT_HASH_LEN 64 /* This can be user defined - 
