@@ -183,7 +183,7 @@ typedef struct SHA512Context SHA384Context;
  *  hashing operations.
  */
 typedef struct USHAContext {
-    int whichSha;               /* which SHA is being used */
+    SHAversion whichSha;               /* which SHA is being used */
     union {
       SHA224Context sha224Context; SHA256Context sha256Context;
       SHA384Context sha384Context; SHA512Context sha512Context;
@@ -195,7 +195,7 @@ typedef struct USHAContext {
  *  keyed-hashing operation.
  */
 typedef struct HMACContext {
-    int whichSha;               /* which SHA is being used */
+    SHAversion whichSha;               /* which SHA is being used */
     int hashSize;               /* hash size of SHA being used */
     int blockSize;              /* block size of SHA being used */
     USHAContext shaContext;     /* SHA context */
@@ -211,7 +211,7 @@ typedef struct HMACContext {
  *  extract-and-expand Key Derivation Functions.
  */
 typedef struct HKDFContext {
-    int whichSha;               /* which SHA is being used */
+    SHAversion whichSha;               /* which SHA is being used */
     HMACContext hmacContext;
     int hashSize;               /* hash size of SHA being used */
     unsigned char prk[USHAMaxHashSize];
