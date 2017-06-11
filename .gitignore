@@ -1,7 +1,35 @@
+# Objects, archives and output
 *.o
 *.asm
 *.dSYM
 *.db
+*.lo
+*.Po
+*.Plo
+*.a
+*.la
+*.so*
+
+# Autoconf and automake
+autom4te.cache/
+aclocal.m4
+ar-lib
+compile
+configure
+configure.scan
+config.guess
+config.log
+config.status
+config.sub
+depcomp
+libtool
+ltmain.sh
+install-sh
+missing
+Makefile
+Makefile.in
+stamp-h1
+.libs
 
 hashword
 hashword.db
