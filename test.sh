@@ -17,7 +17,7 @@ function savepassword()
     domain=$1
     user=$2
     password=$3
-    echo -e "${MASTERPW}\n${password}" | ./hashword --database ${TESTDB} -s savepassword "${domain}" "${user}"
+    echo -e "${MASTERPW}\n${password}" | ./hashword --database ${TESTDB} -s save "${domain}" "${user}"
 }
 
 function getpassword()
@@ -25,7 +25,7 @@ function getpassword()
     domain=$1
     user=$2
 
-    results=`echo "${MASTERPW}" | ./hashword --database ${TESTDB} -s getpassword $domain ${user}|tr '\n' ':'`
+    results=`echo "${MASTERPW}" | ./hashword --database ${TESTDB} -s get $domain ${user}|tr '\n' ':'`
     results_pw=`echo $results|cut -f2 -d':'`
     echo $results_pw
 }

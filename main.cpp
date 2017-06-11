@@ -33,6 +33,8 @@ static bool initCommand(HashWord* hashWord, Options options, int argc, char** ar
     if (!options.script)
     {
         password1 = getPassword("New Master password");
+        checkPassword(password1);
+
         string password2 = getPassword("Retype new Master password");
         if (password1 != password2)
         {
@@ -105,6 +107,7 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
     {
         masterPassword = getPassword("Master Password");
         domainPassword = getPassword("Domain Password");
+        checkPassword(domainPassword);
     }
     else
     {
@@ -112,7 +115,6 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
         domainPassword = getScriptPassword();
     }
 
-    checkPassword(domainPassword);
 
     Key* masterKey = hashWord->getMasterKey(masterPassword);
     if (masterKey == NULL)
@@ -205,7 +207,6 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
     }
 
     string password = hashWord->getCrypto()->generatePassword(16);
-    checkPassword(password);
 
     hashWord->savePassword(masterKey, string(domain), string(user), password);
 
@@ -220,25 +221,47 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
 typedef struct command
 {
     const char* name;
+    const char* descr;
     commandFunc_t func;
 } command_t;
 
 static const command g_commands[] =
 {
-    { "init", initCommand },
-    { "changepassword", changePasswordCommand },
-    { "savepassword", savePasswordCommand },
-    { "getpassword", getPasswordCommand },
-    { "generatepassword", generatePasswordCommand }
+    { "init", "Create a new database or add a new user", initCommand },
+    { "change", "Change master password", changePasswordCommand },
+    { "save", "Save or update an entry", savePasswordCommand },
+    { "get", "Retrieve an entry", getPasswordCommand },
+    { "gen", "Generate a new password and create or update an entry", generatePasswordCommand }
 };
 
 static const struct option g_options[] =
 {
     { "user",     required_argument, NULL, 'u' },
     { "database", required_argument, NULL, 'd' },
-    { "script",   required_argument, NULL, 's' },
+    { "script",   no_argument, NULL, 's' },
+    { "help",   no_argument, NULL, 'h' },
     { NULL,       0,                 NULL, 0 }
 };
+
+void help(const char* argv0, int status)
+{
+    printf("Usage: %s [options] [command] [command options]\n", argv0);
+    printf("Options:\n");
+    printf("\t-d\t--database=db\tPath to database. Defaults to ~/.hashword/hashword.db\n");
+    printf("\t-u\t--user=user\tMaster user\n");
+    printf("\t-s\t--script\tWrite output more suitable for scripts\n");
+    printf("\t-h\t--help\tThis help text\n");
+    printf("\nCommands:\n");
+
+    int i;
+    for (i = 0; i < sizeof(g_commands) / sizeof(command); i++)
+    {
+        const command* cmd = &(g_commands[i]);
+        printf("\t%s\t%s\n", cmd->name, cmd->descr);
+    }
+
+    exit(status);
+}
 
 int main(int argc, char** argv)
 {
@@ -277,6 +300,9 @@ int main(int argc, char** argv)
                 break;
             case 's':
                 options.script = true;
+                break;
+            case 'h':
+                help(argv[0], 0);
                 break;
         }
     }
