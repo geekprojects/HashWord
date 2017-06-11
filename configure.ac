@@ -8,6 +8,7 @@ AM_INIT_AUTOMAKE([foreign -Wall -Werror])
 AC_CONFIG_SRCDIR([cryptoutils.cpp])
 AC_CONFIG_HEADERS([config.h])
 
+
 # Checks for programs.
 AM_PROG_AR
 AC_PROG_CXX
@@ -36,6 +37,8 @@ AC_TYPE_UINT8_T
 AC_FUNC_MALLOC
 AC_FUNC_MMAP
 AC_CHECK_FUNCS([memset mkdir munmap strchr getentropy])
+
+CPPFLAGS="$CPPFLAGS -std=c++11"
 
 AC_CONFIG_FILES([Makefile
                  openaes/Makefile
