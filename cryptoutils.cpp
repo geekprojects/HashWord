@@ -8,7 +8,7 @@
 #include "utils.h"
 #include "cryptoutils.h"
 
-#include <libscrypt.h>
+#include "scrypt/libscrypt.h"
 
 using namespace std;
 

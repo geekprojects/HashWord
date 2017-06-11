@@ -8,8 +8,6 @@ ALL_OBJS=$(OBJS) $(SUBDIROBJS)
 #CFLAGS=-O3 -ggdb
 #CFLAGS+=-Wall -Werror
 
-CFLAGS+=-I/usr/local/include
-
 subdirs:
 	for dir in $(SUBDIRS) $(EXTRA_SUBDIRS) ; do \
 	    $(MAKE) -C $$dir $(TARGET); res=$$?; \
