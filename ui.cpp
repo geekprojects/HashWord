@@ -14,28 +14,28 @@
 
 using namespace std;
 
-#ifdef __APPLE__
-#define TCGETA TIOCGETA
-#define TCSETA TIOCSETA
-#endif
-
 void setPasswordMode(struct termios* tsave)
 {
     struct termios chgit;
+    int res;
 
     // Save the current state
-    if (ioctl(0, TCGETA, tsave) == -1)
+    res = tcgetattr(0, tsave);
+    if (res == -1)
     {
         printf("Failed to store terminal settings!\n");
         exit(1);
     }
+
     chgit = *tsave;
 
     // Turn off canonial mode and echoing
     chgit.c_lflag &= ~(ICANON|ECHO);
     chgit.c_cc[VMIN] = 1;
     chgit.c_cc[VTIME] = 0;
-    if (ioctl(0, TCSETA, &chgit) == -1)
+
+    res = tcsetattr(0, TCSANOW, &chgit);
+    if (res == -1)
     {
         printf("Failed to modify terminal settings!\n");
         exit(1);
@@ -44,7 +44,10 @@ void setPasswordMode(struct termios* tsave)
 
 void resetMode(struct termios* tsave)
 {
-    if (ioctl(0, TCSETA, tsave) == -1)
+    int res;
+
+    res = tcsetattr(0, TCSANOW, tsave);
+    if (res == -1)
     {
         printf("Failed to restore terminal settings!\n");
         exit(1);
