@@ -9,6 +9,7 @@
 *.a
 *.la
 *.so*
+*.Tpo
 
 # Autoconf and automake
 autom4te.cache/

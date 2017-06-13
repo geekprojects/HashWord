@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([FULL-PACKAGE-NAME], [VERSION], [BUG-REPORT-ADDRESS])
+AC_INIT([hashword], [0.1], [ian@geekprojects.com])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
 
 AC_CONFIG_SRCDIR([cryptoutils.cpp])
@@ -43,5 +43,6 @@ CPPFLAGS="$CPPFLAGS -std=c++11"
 AC_CONFIG_FILES([Makefile
                  openaes/Makefile
                  scrypt/Makefile
-                 sha/Makefile])
+                 sha/Makefile
+                 zxcvbn/Makefile])
 AC_OUTPUT
