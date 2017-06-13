@@ -49,6 +49,7 @@ class HashWord
     bool savePassword(Key* masterKey, std::string domain, std::string domainUser, std::string domainPassword);
     bool savePassword(Key* masterKey, std::string domain, std::string domainPassword);
     bool getPassword(Key* masterKey, std::string domain, std::string domainUser, PasswordDetails& details);
+    bool hasPassword(Key* masterKey, std::string domain, std::string domainUser);
 
     CryptoUtils* getCrypto() { return &m_crypto; }
 };

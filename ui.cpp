@@ -11,9 +11,22 @@
 #include <sys/ioctl.h>
 
 #include "ui.h"
+#include "zxcvbn/zxcvbn.h"
 
 using namespace std;
 
+double getPasswordEntropy(string password)
+{
+    ZxcMatch_t *Info;
+
+    const char *UsrDict[] =
+    {
+        NULL
+    };
+
+    return ZxcvbnMatch(password.c_str(), UsrDict, &Info);
+}
+ 
 void setPasswordMode(struct termios* tsave)
 {
     struct termios chgit;
@@ -59,27 +72,35 @@ string getPassword(string prompt)
     string password = "";
     struct termios tsave;
 
-    printf("%s: ", prompt.c_str());
-    fflush(stdout);
-
     setPasswordMode(&tsave);
 
-    while (1)
+    while (true)
     {
-        int c = getchar();
-        /* CR is ascii value 13, interrupt is -1, control-c is 3 */
-        if (c == '\r' || c == '\n' || c == '\b' || c == -1 || c == 3)
+        printf("%s: ", prompt.c_str());
+        fflush(stdout);
+
+        password = "";
+        while (1)
+        {
+            int c = getchar();
+            /* CR is ascii value 13, interrupt is -1, control-c is 3 */
+            if (c == '\r' || c == '\n' || c == '\b' || c == -1 || c == 3)
+            {
+                break;
+            }
+
+            if (isprint(c))
+            {
+                password += c;
+            }
+        }
+
+        printf("\n");
+        if (password.length() > 0)
         {
             break;
         }
-
-        if (isprint(c))
-        {
-            password += c;
-        }
     }
-
-    printf("\n");
 
     resetMode(&tsave);
 
@@ -91,7 +112,7 @@ void showPassword(string username, string password)
     struct termios tsave;
 
     printf("Username: %s\n", username.c_str());
-    printf("Password: %s\n", password.c_str());
+    printf("Password: %s (%0.2f entropy bits)\n", password.c_str(), getPasswordEntropy(password));
     printf("Press a key to hide the password");
     fflush(stdout);
 
@@ -101,11 +122,11 @@ void showPassword(string username, string password)
     resetMode(&tsave);
 
     printf("%c[2A", 0x1B);
-    printf("%c[1K", 0x1B);
+    printf("%c[2K", 0x1B);
     printf("%c[1B", 0x1B);
-    printf("%c[1K", 0x1B);
+    printf("%c[2K", 0x1B);
     printf("%c[1B", 0x1B);
-    printf("%c[1K", 0x1B);
+    printf("%c[2K", 0x1B);
     printf("\n");
     printf("\n");
 }
@@ -128,60 +149,26 @@ string getScriptPassword()
     return string(buffer);
 }
 
-bool checkPassword(string password)
+bool confirm(string prompt)
 {
-    bool lower = false;
-    bool upper = false;
-    bool numbers = false;
-    bool other = false;
-
-    int i;
-    for (i = 0; i < password.length(); i++)
+    struct termios tsave;
+    char c;
+    while (true)
     {
-        char c = password[i];
-        if (islower(c))
+        printf("%s [Yn]: ", prompt.c_str());
+        fflush(stdout);
+
+        setPasswordMode(&tsave);
+        c = getchar();
+        resetMode(&tsave);
+        printf("%c\n", c);
+
+        if (c == 'Y' || c == 'n' || c == 'N')
         {
-            lower = true;
-        }
-        else if (isupper(c))
-        {
-            upper = true;
-        }
-        else if (isdigit(c))
-        {
-            numbers = true;
-        }
-        else
-        {
-            other = true;
+            break;
         }
     }
-
-    int possibleChars = 0;
-    if (lower)
-    {
-        possibleChars += 26;
-    }
-    if (upper)
-    {
-        possibleChars += 26;
-    }
-    if (numbers)
-    {
-        possibleChars += 10;
-    }
-    if (other)
-    {
-        possibleChars += 26;
-    }
-
-    unsigned long perms = 1;
-    for (i = 0; i < password.length(); i++)
-    {
-        perms *= possibleChars;
-    }
-    printf("checkPassword: Permutations=%lu\n", perms);
-
-    return true;
+    return (c == 'Y');
 }
+
 

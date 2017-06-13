@@ -33,7 +33,8 @@ static bool initCommand(HashWord* hashWord, Options options, int argc, char** ar
     if (!options.script)
     {
         password1 = getPassword("New Master password");
-        checkPassword(password1);
+        //double entropy = getPasswordEntropy(password1);
+        //printf("Password Entropy: %0.2f bits\n", entropy);
 
         string password2 = getPassword("Retype new Master password");
         if (password1 != password2)
@@ -91,30 +92,25 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
 
     const char* user = "";
     const char* domain = "";
-    if (argc == 1)
+    if (argc == 2)
     {
-        domain = argv[0];
+        domain = argv[1];
     }
-    else if (argc == 2)
+    else if (argc == 3)
     {
-        domain = argv[0];
-        user = argv[1];
+        domain = argv[1];
+        user = argv[2];
     }
 
     string masterPassword;
-    string domainPassword;
     if (!options.script)
     {
         masterPassword = getPassword("Master Password");
-        domainPassword = getPassword("Domain Password");
-        checkPassword(domainPassword);
     }
     else
     {
         masterPassword = getScriptPassword();
-        domainPassword = getScriptPassword();
     }
-
 
     Key* masterKey = hashWord->getMasterKey(masterPassword);
     if (masterKey == NULL)
@@ -122,6 +118,32 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
         printf("HashWord: Unable to unlock Master Key\n");
         return false;
     }
+
+    if (!options.script)
+    {
+        bool res = hashWord->hasPassword(masterKey, string(domain), string(user));
+        if (res)
+        {
+            res = confirm("An entry for this domain already exists, overwrite?");
+            if (!res)
+            {
+                return true;
+            }
+        }
+    }
+
+    string domainPassword;
+    if (!options.script)
+    {
+        domainPassword = getPassword("Domain Password");
+        //double entropy = getPasswordEntropy(domainPassword);
+        //printf("Password Entropy: %0.2f bits\n", entropy);
+    }
+    else
+    {
+        domainPassword = getScriptPassword();
+    }
+
     hashWord->savePassword(masterKey, string(domain), string(user), domainPassword);
 
     hashWord->getCrypto()->shred(masterKey);
@@ -137,11 +159,11 @@ bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** ar
         return false;
     }
 
-    const char* domain = argv[0];
+    const char* domain = argv[1];
     const char* user = "";
-    if (argc > 1)
+    if (argc > 2)
     {
-        user = argv[1];
+        user = argv[2];
     }
 
     string masterPassword;
@@ -179,8 +201,52 @@ bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** ar
     return true;
 }
 
+static const struct option g_generatePasswordOptions[] =
+{
+    { "length",     required_argument, NULL, 'l' },
+    { "help",     no_argument, NULL, 'h' },
+    { NULL,       0,                 NULL, 0 }
+};
+
 bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char** argv)
 {
+    int length = 16;
+
+    optreset = 1;
+    optind = 0;
+    opterr = 0;
+
+    while (true)
+    {
+        int c = getopt_long(
+            argc,
+            argv,
+            "+l:",
+            g_generatePasswordOptions,
+            NULL);
+
+        if (c == -1)
+        {
+            break;
+        }
+        switch (c)
+        {
+            case 'l':
+                length = atoi(optarg);
+                break;
+
+            case 'h':
+                printf("Usage: hashword gen [options]\n");
+                printf("Options:\n");
+                printf("\t-l\t--length=length\tSpecify the length of the password\n");
+                return true;
+                break;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
     if (argc < 1)
     {
         return false;
@@ -206,7 +272,20 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
         return 1;
     }
 
-    string password = hashWord->getCrypto()->generatePassword(16);
+    if (!options.script)
+    {
+        bool res = hashWord->hasPassword(masterKey, string(domain), string(user));
+        if (res)
+        {
+            res = confirm("An entry for this domain already exists, overwrite?");
+            if (!res)
+            {
+                return true;
+            }
+        }
+    }
+
+    string password = hashWord->getCrypto()->generatePassword(length);
 
     hashWord->savePassword(masterKey, string(domain), string(user), password);
 
@@ -282,7 +361,7 @@ int main(int argc, char** argv)
         int c = getopt_long(
             argc,
             argv,
-            "u:d:s",
+            "+u:d:s",
             g_options,
             NULL);
 
@@ -337,7 +416,7 @@ int main(int argc, char** argv)
     {
         return 1;
     }
-    int commandArgc = remaining_argc - 1;
+    int commandArgc = remaining_argc;
 
     int i;
     for (i = 0; i < sizeof(g_commands) / sizeof(command); i++)
@@ -345,7 +424,7 @@ int main(int argc, char** argv)
         const command* cmd = &(g_commands[i]);
         if (!strcmp(cmd->name, argv[optind]))
         {
-            cmd->func(&hashWord, options, commandArgc, argv + optind + 1);
+            cmd->func(&hashWord, options, commandArgc, argv + optind);
             break;
         }
     }

@@ -320,6 +320,33 @@ bool HashWord::getPassword(Key* masterKey, string domain, string user, PasswordD
     return true;
 }
 
+bool HashWord::hasPassword(Key* masterKey, string domain, string user)
+{
+    if (user.length() == 0)
+    {
+        user = m_username;
+    }
+
+    string idHash = m_crypto.hash(masterKey, m_username + ":" + user + ":" + domain);
+
+    PreparedStatement* stmt = m_database->prepareStatement(
+        "SELECT domain_info_enc, domain_password_enc, salt_enc FROM passwords WHERE id=?");
+    stmt->bindString(1, idHash);
+
+    bool res;
+    res = stmt->executeQuery();
+    if (!res)
+    {
+        delete stmt;
+        return false;
+    }
+
+    res = stmt->step();
+    delete stmt;
+
+    return res;
+}
+
 bool HashWord::hasConfig(std::string name)
 {
     PreparedStatement* stmt = m_database->prepareStatement("SELECT 1 FROM config WHERE name=?");
