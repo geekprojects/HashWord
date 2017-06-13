@@ -212,7 +212,10 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
 {
     int length = 16;
 
+#ifdef _OPTRESET
     optreset = 1;
+#endif
+
     optind = 0;
     opterr = 0;
 
