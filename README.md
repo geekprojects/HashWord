@@ -9,12 +9,13 @@ HashWord is a simple, secure command line password manager based on standard sec
 * Scrypt or SHA512 HKDF key derivation
 * Multiple rounds of AES 256 encryption
 * SHA512 hashes
+* zxcvbn password entropy info
 
 Features:
 * Domain Names are not stored, only hashed
- * HashWord does not know what the passwords are for, and nor will any adversary. You must specify the username and domain you want when retrieving the passwords.
+    * HashWord does not know what the passwords are for, and nor will any adversary. You must specify the username and domain you want when retrieving the passwords.
 * Passwords are encrypted using keys derived from the domain name and individual salts, as well as the master key.
- * Even if you have the master password, you must guess what domains the user has passwords for.
+    * Even if you have the master password, you must guess what domains the user has passwords for.
 * Simple password generator
 
 
@@ -56,4 +57,5 @@ HashWord includes code by third parties.
 * OpenAES is Copyright (c) 2012, Nabil S. Al Ramli. Modified slightly to use my own Random class. (See openaes/LICENSE)
 * SHA code is Copyright (c) 2011 IETF Trust and the persons identified as authors of the SHA code. (See sha/sha.h)
 * libscrypt is Copyright (c) 2013, Joshua Small. Modified to use our copy of the IETF SHA code (See scrypt/LICENSE)
+* zxcvbn is Copyright (c) 2015-2017 Tony Evans (see zxcvbn/LICENSE.txt)
 
