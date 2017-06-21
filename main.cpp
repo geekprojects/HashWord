@@ -59,14 +59,24 @@ static bool initCommand(HashWord* hashWord, Options options, int argc, char** ar
 
 bool changePasswordCommand(HashWord* hashWord, Options options, int argc, char** argv)
 {
-    string oldMasterPassword = getPassword("Old Master Password");
-    string newMasterPassword = getPassword("New Master Password");
-    string newMasterPassword2 = getPassword("Retype new Master password");
-
-    if (newMasterPassword != newMasterPassword2)
+    string oldMasterPassword;
+    string newMasterPassword;
+    if (!options.script)
     {
-        printf("Passwords do not match\n");
-        return false;
+        oldMasterPassword = getPassword("Old Master Password");
+        newMasterPassword = getPassword("New Master Password");
+        string newMasterPassword2 = getPassword("Retype new Master password");
+
+        if (newMasterPassword != newMasterPassword2)
+        {
+            printf("Passwords do not match\n");
+            return false;
+        }
+    }
+    else
+    {
+        oldMasterPassword = getScriptPassword();
+        newMasterPassword = getScriptPassword();
     }
 
     Key* masterKey = hashWord->getMasterKey(oldMasterPassword);
@@ -267,7 +277,16 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
         user = argv[1];
     }
 
-    string masterPassword = getPassword("Master Password");
+    string masterPassword;
+    if (!options.script)
+    {
+        masterPassword = getPassword("Master Password");
+    }
+    else
+    {
+        masterPassword = getScriptPassword();
+    }
+
     Key* masterKey = hashWord->getMasterKey(masterPassword);
     if (masterKey == NULL)
     {
@@ -292,7 +311,14 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
 
     hashWord->savePassword(masterKey, string(domain), string(user), password);
 
-    showPassword(string(user), password);
+    if (!options.script)
+    {
+        showPassword(string(user), password);
+    }
+    else
+    {
+        printf("%s\n", password.c_str());
+    }
 
     hashWord->getCrypto()->shred(masterKey);
     free(masterKey);
