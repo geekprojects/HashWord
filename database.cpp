@@ -27,7 +27,7 @@ Database::~Database()
 {
     close();
 
-    sqlite3_shutdown();
+    //sqlite3_shutdown();
 }
 
 bool Database::open()

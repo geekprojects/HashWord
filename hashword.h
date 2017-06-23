@@ -36,6 +36,8 @@ class HashWord
     void setConfig(std::string name, std::string value);
     void setConfig(std::string name, int value);
 
+    bool savePassword(std::string idHash, std::string saltEnc64, std::string domainUserEnc64, std::string domainPasswordEnc64, std::string updatedEnc64);
+
  public:
     HashWord(std::string username, std::string dbpath);
     ~HashWord();
@@ -45,11 +47,14 @@ class HashWord
     bool hasMasterKey();
     bool saveMasterKey(Key* masterKey, std::string password);
     Key* getMasterKey(std::string password);
+    std::string getUsername() { return m_username; }
 
     bool savePassword(Key* masterKey, std::string domain, std::string domainUser, std::string domainPassword);
     bool savePassword(Key* masterKey, std::string domain, std::string domainPassword);
     bool getPassword(Key* masterKey, std::string domain, std::string domainUser, PasswordDetails& details);
     bool hasPassword(Key* masterKey, std::string domain, std::string domainUser);
+
+    bool sync(Key* masterKey, HashWord* syncHashWord, bool newOnly = false);
 
     CryptoUtils* getCrypto() { return &m_crypto; }
 };

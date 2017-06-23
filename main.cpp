@@ -326,6 +326,75 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
     return true;
 }
 
+bool syncCommand(HashWord* hashWord, Options options, int argc, char** argv)
+{
+    if (argc < 2)
+    {
+        return false;
+    }
+
+    string masterPassword;
+    if (!options.script)
+    {
+        masterPassword = getPassword("Master Password");
+    }
+    else
+    {
+        masterPassword = getScriptPassword();
+    }
+
+    Key* masterKey = hashWord->getMasterKey(masterPassword);
+    if (masterKey == NULL)
+    {
+        printf("HashWord: Unable to unlock Master Key\n");
+        return 1;
+    }
+
+    const char* targetDB = argv[1];
+
+    char* targetFile = strdup("sync.XXXXXX.db");
+    mkstemps(targetFile, 3);
+
+    string command = string("/usr/bin/scp ") + string(targetDB) + " " + targetFile;
+    printf("syncCommand: Retrieving target: %s\n", command.c_str());
+
+    int sysres;
+    sysres = system(command.c_str());
+    if (sysres != 0)
+    {
+        printf("syncCommand: Failed to get target database\n");
+        return false;
+    }
+
+    bool res;
+    HashWord syncHashWord(hashWord->getUsername(), string(targetFile));
+
+    res = syncHashWord.open();
+    if (!res)
+    {
+        printf("syncCommand: Failed to open sync database\n");
+        return false;
+    }
+
+    res = hashWord->sync(masterKey, &syncHashWord);
+
+    if (res)
+    {
+        string command = string("/usr/bin/scp ") + targetFile + " " + string(targetDB);
+        printf("syncCommand: Updating target: %s\n", command.c_str());
+        sysres = system(command.c_str());
+        if (sysres != 0)
+        {
+            printf("syncCommand: Failed to update target database\n");
+            return false;
+        }
+
+        unlink(targetFile);
+    }
+
+    return true;
+}
+
 typedef struct command
 {
     const char* name;
@@ -339,7 +408,8 @@ static const command g_commands[] =
     { "change", "Change master password", changePasswordCommand },
     { "save", "Save or update an entry", savePasswordCommand },
     { "get", "Retrieve an entry", getPasswordCommand },
-    { "gen", "Generate a new password and create or update an entry", generatePasswordCommand }
+    { "gen", "Generate a new password and create or update an entry", generatePasswordCommand },
+    { "sync", "Synchronise passwords with a remote database", syncCommand }
 };
 
 static const struct option g_options[] =
@@ -447,15 +517,25 @@ int main(int argc, char** argv)
     }
     int commandArgc = remaining_argc;
 
+    char* commandArg = argv[optind];
+
     int i;
+    bool found = false;
     for (i = 0; i < sizeof(g_commands) / sizeof(command); i++)
     {
         const command* cmd = &(g_commands[i]);
-        if (!strcmp(cmd->name, argv[optind]))
+        if (!strcmp(cmd->name, commandArg))
         {
             cmd->func(&hashWord, options, commandArgc, argv + optind);
+            found = true;
             break;
         }
+    }
+
+    if (!found)
+    {
+        printf("%s: Unknown command: %s\n", argv[0], commandArg);
+        help(argv[0], 1);
     }
 
     return 0;

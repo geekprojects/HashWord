@@ -28,8 +28,11 @@ HashWord::~HashWord()
         free(m_globalSalt);
     }
 
-    m_database->close();
-    delete m_database;
+    if (m_database != NULL)
+    {
+        m_database->close();
+        delete m_database;
+    }
 }
 
 bool HashWord::open()
@@ -248,6 +251,23 @@ bool HashWord::savePassword(Key* masterKey, string domain, string domainUser, st
     snprintf(updatedStr, 16, "%lu", now);
     string updatedEnc64 = m_crypto.encryptValue(masterKey, NULL, updatedStr, m_rounds);
 
+    savePassword(idHash, saltEnc64, domainUserEnc, domainPasswordEnc, updatedEnc64);
+
+    return true;
+}
+
+bool HashWord::savePassword(Key* masterKey, string domain, std::string domainPassword)
+{
+    return savePassword(masterKey, domain, "", domainPassword);
+}
+
+bool HashWord::savePassword(
+    std::string idHash,
+    std::string saltEnc64,
+    std::string domainUserEnc,
+    std::string domainPasswordEnc,
+    std::string updatedEnc64)
+{
     vector<string> args;
     args.push_back(idHash);
     args.push_back(saltEnc64);
@@ -262,10 +282,6 @@ bool HashWord::savePassword(Key* masterKey, string domain, string domainUser, st
     return true;
 }
 
-bool HashWord::savePassword(Key* masterKey, string domain, std::string domainPassword)
-{
-    return savePassword(masterKey, domain, "", domainPassword);
-}
 
 bool HashWord::getPassword(Key* masterKey, string domain, string user, PasswordDetails& details)
 {
@@ -345,6 +361,112 @@ bool HashWord::hasPassword(Key* masterKey, string domain, string user)
     delete stmt;
 
     return res;
+}
+
+enum SyncTarget
+{
+    NONE,
+    OWN,
+    SYNC
+};
+
+bool HashWord::sync(Key* masterKey, HashWord* syncHashWord, bool newOnly)
+{
+    PreparedStatement* stmt = m_database->prepareStatement(
+        "SELECT id, salt_enc, domain_info_enc, domain_password_enc, updated_enc FROM passwords");
+
+    bool res;
+    res = stmt->executeQuery();
+    if (!res)
+    {
+        delete stmt;
+        return false;
+    }
+
+    while (stmt->step())
+    {
+        string id = stmt->getString(0);
+        string saltEnc64 = stmt->getString(1);
+        string domainUserEnc = stmt->getString(2);
+        string domainPasswordEnc = stmt->getString(3);
+        string updatedEnc64 = stmt->getString(4);
+
+        string updatedStr = m_crypto.decryptValue(masterKey, NULL, updatedEnc64, m_rounds);
+        uint64_t updated = atoll(updatedStr.c_str());
+
+        //printf("HashWord::sync: updated=%lld\n", updated);
+
+        PreparedStatement* syncStmt = syncHashWord->m_database->prepareStatement(
+            "SELECT salt_enc, domain_info_enc, domain_password_enc, updated_enc FROM passwords WHERE id=?");
+        syncStmt->bindString(1, id);
+
+        res = syncStmt->executeQuery();
+        if (!res)
+        {
+            return false;
+        }
+
+        SyncTarget target = NONE;
+
+        res = syncStmt->step();
+        if (!res)
+        {
+            printf("HashWord::sync: Password does not exist in sync DB!\n");
+            target = SYNC;
+        }
+        else if (!newOnly)
+        {
+            string syncSaltEnc64 = syncStmt->getString(0);
+            string syncDomainInfoEnc64 = syncStmt->getString(1);
+            string syncDomainPasswordEnc64 = syncStmt->getString(2);
+            string syncUpdatedEnc = syncStmt->getString(3);
+            delete syncStmt;
+
+            string syncUpdatedStr = m_crypto.decryptValue(masterKey, NULL, syncUpdatedEnc, m_rounds);
+            uint64_t syncUpdated = atoll(syncUpdatedStr.c_str());
+
+            //printf("HashWord::sync:  -> syncUpdated=%lld\n", syncUpdated);
+
+            if (updated > syncUpdated)
+            {
+                printf("HashWord::sync: Synchronising password\n");
+                target = SYNC;
+            }
+            else if (updated < syncUpdated)
+            {
+                printf("HashWord::sync: Synchronising password\n");
+
+                saltEnc64 = syncSaltEnc64;
+                domainUserEnc = syncDomainInfoEnc64;
+                domainPasswordEnc = syncDomainPasswordEnc64;
+                updatedEnc64 = syncUpdatedEnc;
+                target = OWN;
+            }
+        }
+
+        if (target == SYNC)
+        {
+            syncHashWord->savePassword(id, saltEnc64, domainUserEnc, domainPasswordEnc, updatedEnc64);
+        }
+        else if (target == OWN)
+        {
+            savePassword(id, saltEnc64, domainUserEnc, domainPasswordEnc, updatedEnc64);
+        }
+
+    }
+    delete stmt;
+
+    // Now check for things in the other DB that we don't have
+    if (!newOnly)
+    {
+        res = syncHashWord->sync(masterKey, this, true);
+        if (!res)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool HashWord::hasConfig(std::string name)
