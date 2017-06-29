@@ -16,16 +16,58 @@ Features:
     * HashWord does not know what the passwords are for, and nor will any adversary. You must specify the username and domain you want when retrieving the passwords.
 * Passwords are encrypted using keys derived from the domain name and individual salts, as well as the master key.
     * Even if you have the master password, you must guess what domains the user has passwords for.
-* Simple password generator
+* Simple secure password generator
+* Synchronise and backup multiple copies of a database via SCP
+    * Make sure the latest passwords are copied between databases
 
 
 Requirements
 ---
+* POSIX OS
+    * Tested with OS X, Debian, Ubuntu and Cygwin
 * libsqlite3
+
+
+Building
+---
+
+### Linux ###
+
+Dependencies:
+* m4
+* autoconf
+* automake
+* libtool
+* libsqlite3-dev
+
+Building:
+```shell
+$ ./autogen.sh
+$ ./configure
+$ make
+$ sudo make install
+```
+
+### Mac OS X ###
+
+Dependencies (Using Homebrew):
+* m4
+* autoconf
+* automake
+* libtool
+* sqlite
+
+```shell
+$ ./autogen.sh
+$ ./configure
+$ make
+$ make install
+```
 
 
 Usage
 ---
+
     Usage: hashword [options] [command] [command options]
     Options:
         -d    --database=db Path to database. Defaults to ~/.hashword/hashword.db
@@ -39,11 +81,19 @@ Usage
         save   Save or update an entry
         get    Retrieve an entry
         gen    Generate a new password and create or update an entry
+        sync   Synchronise database with a remote database
+
+    Use 'hashword <command> --help' for specific help.
 
 
-Todo
+Hints
 ---
-* Password strength info
+
+* Use a good, secure master password
+* Do not use a master password that you use for anything else
+* Change the master password occasionally, but not so frequently that you end up using an insecure one
+* Keep backups of the database!
+* If you're paranoid, make sure you build HashWord from source
 
 
 Copyrights
