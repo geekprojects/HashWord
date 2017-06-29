@@ -5,6 +5,11 @@
 
 #include <cinttypes>
 
+#include "utils.h"
+#include "zxcvbn/zxcvbn.h"
+
+using namespace std;
+
 void hexdump(const char* pos, int len)
 {
     int i;
@@ -28,3 +33,16 @@ void hexdump(const char* pos, int len)
         printf("\n");
     }
 }
+
+double getPasswordEntropy(string password)
+{
+    ZxcMatch_t *Info;
+
+    const char *UsrDict[] =
+    {
+        NULL
+    };
+
+    return ZxcvbnMatch(password.c_str(), UsrDict, &Info);
+}
+

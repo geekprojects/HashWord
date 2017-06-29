@@ -11,6 +11,7 @@
 
 #include "hashword.h"
 #include "ui.h"
+#include "utils.h"
 
 using namespace std;
 
@@ -33,8 +34,6 @@ static bool initCommand(HashWord* hashWord, Options options, int argc, char** ar
     if (!options.script)
     {
         password1 = getPassword("New Master password");
-        //double entropy = getPasswordEntropy(password1);
-        //printf("Password Entropy: %0.2f bits\n", entropy);
 
         string password2 = getPassword("Retype new Master password");
         if (password1 != password2)
@@ -146,8 +145,6 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
     if (!options.script)
     {
         domainPassword = getPassword("Domain Password");
-        //double entropy = getPasswordEntropy(domainPassword);
-        //printf("Password Entropy: %0.2f bits\n", entropy);
     }
     else
     {
@@ -213,7 +210,8 @@ bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** ar
 
 static const struct option g_generatePasswordOptions[] =
 {
-    { "length",     required_argument, NULL, 'l' },
+    { "length",   required_argument, NULL, 'l' },
+    { "no-symbols",  no_argument, NULL, 's' },
     { "help",     no_argument, NULL, 'h' },
     { NULL,       0,                 NULL, 0 }
 };
@@ -228,6 +226,8 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
 
     optind = 0;
     opterr = 0;
+
+    bool useSymbols = true;
 
     while (true)
     {
@@ -248,10 +248,15 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
                 length = atoi(optarg);
                 break;
 
+            case 's':
+                useSymbols = false;
+                break;
+
             case 'h':
                 printf("Usage: hashword gen [options]\n");
                 printf("Options:\n");
                 printf("\t-l\t--length=length\tSpecify the length of the password\n");
+                printf("\t-s\t--no-symbols\tDon't include symbols in password\n");
                 return true;
                 break;
         }
@@ -260,9 +265,20 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
     argc -= optind;
     argv += optind;
 
-    if (argc < 1)
+    if (argc == 0)
     {
-        return false;
+        string password = hashWord->getCrypto()->generatePassword(length, useSymbols);
+
+        if (!options.script)
+        {
+            showPassword("", password);
+        }
+        else
+        {
+            printf("%s\n", password.c_str());
+        }
+
+        return true;
     }
 
     const char* user = "";
@@ -307,7 +323,7 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
         }
     }
 
-    string password = hashWord->getCrypto()->generatePassword(length);
+    string password = hashWord->getCrypto()->generatePassword(length, useSymbols);
 
     hashWord->savePassword(masterKey, string(domain), string(user), password);
 

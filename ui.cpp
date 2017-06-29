@@ -11,22 +11,10 @@
 #include <sys/ioctl.h>
 
 #include "ui.h"
-#include "zxcvbn/zxcvbn.h"
+#include "utils.h"
 
 using namespace std;
 
-double getPasswordEntropy(string password)
-{
-    ZxcMatch_t *Info;
-
-    const char *UsrDict[] =
-    {
-        NULL
-    };
-
-    return ZxcvbnMatch(password.c_str(), UsrDict, &Info);
-}
- 
 void setPasswordMode(struct termios* tsave)
 {
     struct termios chgit;

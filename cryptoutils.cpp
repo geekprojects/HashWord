@@ -410,21 +410,51 @@ void CryptoUtils::shred(Data* data)
 string g_lower = "abcdefghijklmnopqrstuvwxyz";
 string g_upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 string g_numbers = "0123456789";
-string g_other = "!@#$%^&*()/";
+string g_symbols = "!@#$%^&*()/";
 
-string CryptoUtils::generatePassword(int length)
+string CryptoUtils::generatePassword(int length, bool useSymbols)
 {
-    string password = "";
+    double entropyPerChar = 0;
+    string password;
 
-    string possibleChars = g_lower + g_upper + g_numbers + g_other;
+    double minEntropy = 5.0;
 
-    int i;
-    for (i = 0; i < length; i++)
+    if (useSymbols)
     {
-        int c = m_random.rand32() % possibleChars.length();
-
-        password += possibleChars[c];
+        minEntropy += 0.5;
     }
+    if (length > 5)
+    {
+        minEntropy += 0.5;
+    }
+
+    // Keep looping until we've got a strong enough password
+    while (entropyPerChar < minEntropy)
+    {
+        password = "";
+
+        string possibleChars = g_lower + g_upper + g_numbers;
+
+        if (useSymbols)
+        {
+            possibleChars += g_symbols;
+        }
+
+        int i;
+        for (i = 0; i < length; i++)
+        {
+            int c = m_random.rand32() % possibleChars.length();
+
+            password += possibleChars[c];
+        }
+
+        double entropy = getPasswordEntropy(password);
+        entropyPerChar = entropy / length;
+#if 0
+        printf("CryptoUtils::generatePassword: password=%s, entropyPerChar=%0.2f\n", password.c_str(), entropyPerChar);
+#endif
+    }
+
     return password;
 }
 

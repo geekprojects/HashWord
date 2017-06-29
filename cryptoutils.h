@@ -41,7 +41,7 @@ class CryptoUtils
 
     Key* generateKey();
 
-    std::string generatePassword(int length);
+    std::string generatePassword(int length, bool useSymbols);
 
     void shred(Data* data);
 };
