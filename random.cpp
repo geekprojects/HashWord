@@ -19,7 +19,13 @@
 
 Random::Random()
 {
+    m_entropyCount = 0;
+    m_generatedCount = 0;
     init();
+}
+
+Random::~Random()
+{
 }
 
 bool Random::init()
@@ -130,12 +136,22 @@ bool Random::init(uint32_t* seed)
 
     // Force us to generate more results
     m_resultsUsed = 256;
+    m_generatedCount = 0;
+    m_entropyCount++;
 
     return true;
 }
 
 void Random::generateMore()
 {
+    m_generatedCount++;
+
+    if (m_generatedCount > 512)
+    {
+        // Refresh entropy!
+        init();
+    }
+
     m_cc++;
     m_bb += m_cc;
 
@@ -182,21 +198,5 @@ uint32_t Random::rand32()
     }
 
     return m_results[m_resultsUsed++];
-}
-
-int Random::range(int min, int max)
-{
-    float r = (max - min) + 1;
-    float v1 = ((float)rand32() / (float)(maxrand()));
-    float v2 = v1 * r;
-    return min + (int)v2;
-}
-
-double Random::ranged(double min, double max)
-{
-    double rnd = (double)rand32() * (double)rand32();
-    double r = (max - min) + 1;
-    double v = (rnd / ((double)maxrand() * (double)maxrand() + 1)) * r;
-    return min + v;
 }
 

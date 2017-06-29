@@ -6,6 +6,9 @@
 class Random
 {
  private:
+    int m_entropyCount;
+    int m_generatedCount;
+
     uint32_t m_results[256];
     uint32_t m_resultsUsed;
 
@@ -22,12 +25,11 @@ class Random
 
  public:
     Random();
+    virtual ~Random();
 
     uint32_t rand32();
 
     uint32_t maxrand() { return 4294967295UL; } // unsigned 32 bits
-    int range(int min, int max);
-    double ranged(double min, double max);
 };
 
 #endif
