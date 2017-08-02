@@ -45,7 +45,6 @@ static void blkcpy(void *, void *, size_t);
 static void blkxor(void *, void *, size_t);
 static void salsa20_8(uint32_t[16]);
 static void blockmix_salsa8(uint32_t *, uint32_t *, uint32_t *, size_t);
-static uint64_t integerify(void *, size_t);
 static void smix(uint8_t *, size_t, uint64_t, uint32_t *, uint32_t *);
 
 static void libscrypt_PBKDF2_SHA256(const uint8_t * passwd, size_t passwdlen, const uint8_t * salt,
