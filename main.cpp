@@ -344,6 +344,8 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
 
 bool syncCommand(HashWord* hashWord, Options options, int argc, char** argv)
 {
+    int res;
+
     if (argc < 2)
     {
         return false;
@@ -363,26 +365,29 @@ bool syncCommand(HashWord* hashWord, Options options, int argc, char** argv)
     if (masterKey == NULL)
     {
         printf("HashWord: Unable to unlock Master Key\n");
-        return 1;
+        return false;
     }
 
     const char* targetDB = argv[1];
 
     char* targetFile = strdup("sync.XXXXXX.db");
-    mkstemps(targetFile, 3);
+    res = mkstemps(targetFile, 3);
+    if (res == -1)
+    {
+        printf("syncCommand: Failed to create temp file\n");
+        return false;
+    }
 
     string command = string("/usr/bin/scp ") + string(targetDB) + " " + targetFile;
     printf("syncCommand: Retrieving target: %s\n", command.c_str());
 
-    int sysres;
-    sysres = system(command.c_str());
-    if (sysres != 0)
+    res = system(command.c_str());
+    if (res != 0)
     {
         printf("syncCommand: Failed to get target database\n");
         return false;
     }
 
-    bool res;
     HashWord syncHashWord(hashWord->getUsername(), string(targetFile));
 
     res = syncHashWord.open();
@@ -398,8 +403,8 @@ bool syncCommand(HashWord* hashWord, Options options, int argc, char** argv)
     {
         string command = string("/usr/bin/scp ") + targetFile + " " + string(targetDB);
         printf("syncCommand: Updating target: %s\n", command.c_str());
-        sysres = system(command.c_str());
-        if (sysres != 0)
+        res = system(command.c_str());
+        if (res != 0)
         {
             printf("syncCommand: Failed to update target database\n");
             return false;
