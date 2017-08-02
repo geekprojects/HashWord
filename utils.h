@@ -3,8 +3,12 @@
 
 #include <string>
 
+#include "securestring.h"
+
 void hexdump(const char* pos, int len);
 
-double getPasswordEntropy(std::string password);
+double getPasswordEntropy(SecureString password);
+
+void scrubData(uint8_t* data, size_t length);
 
 #endif

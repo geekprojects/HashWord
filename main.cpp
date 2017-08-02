@@ -30,12 +30,12 @@ static bool initCommand(HashWord* hashWord, Options options, int argc, char** ar
         return 1;
     }
 
-    string password1;
+    SecureString password1;
     if (!options.script)
     {
         password1 = getPassword("New Master password");
 
-        string password2 = getPassword("Retype new Master password");
+        SecureString password2 = getPassword("Retype new Master password");
         if (password1 != password2)
         {
             printf("Passwords do not match\n");
@@ -58,13 +58,13 @@ static bool initCommand(HashWord* hashWord, Options options, int argc, char** ar
 
 bool changePasswordCommand(HashWord* hashWord, Options options, int argc, char** argv)
 {
-    string oldMasterPassword;
-    string newMasterPassword;
+    SecureString oldMasterPassword;
+    SecureString newMasterPassword;
     if (!options.script)
     {
         oldMasterPassword = getPassword("Old Master Password");
         newMasterPassword = getPassword("New Master Password");
-        string newMasterPassword2 = getPassword("Retype new Master password");
+        SecureString newMasterPassword2 = getPassword("Retype new Master password");
 
         if (newMasterPassword != newMasterPassword2)
         {
@@ -111,7 +111,7 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
         user = argv[2];
     }
 
-    string masterPassword;
+    SecureString masterPassword;
     if (!options.script)
     {
         masterPassword = getPassword("Master Password");
@@ -130,7 +130,7 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
 
     if (!options.script)
     {
-        bool res = hashWord->hasPassword(masterKey, string(domain), string(user));
+        bool res = hashWord->hasPassword(masterKey, SecureString(domain), SecureString(user));
         if (res)
         {
             res = confirm("An entry for this domain already exists, overwrite?");
@@ -141,7 +141,7 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
         }
     }
 
-    string domainPassword;
+    SecureString domainPassword;
     if (!options.script)
     {
         domainPassword = getPassword("Domain Password");
@@ -151,7 +151,7 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
         domainPassword = getScriptPassword();
     }
 
-    hashWord->savePassword(masterKey, string(domain), string(user), domainPassword);
+    hashWord->savePassword(masterKey, SecureString(domain), SecureString(user), domainPassword);
 
     hashWord->getCrypto()->shred(masterKey);
     free(masterKey);
@@ -173,7 +173,7 @@ bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** ar
         user = argv[2];
     }
 
-    string masterPassword;
+    SecureString masterPassword;
     if (!options.script)
     {
         masterPassword = getPassword("Master Password");
@@ -191,7 +191,7 @@ bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** ar
     }
 
     PasswordDetails details;
-    hashWord->getPassword(masterKey, string(domain), string(user), details);
+    hashWord->getPassword(masterKey, SecureString(domain), SecureString(user), details);
     hashWord->getCrypto()->shred(masterKey);
     free(masterKey);
 
@@ -267,7 +267,7 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
 
     if (argc == 0)
     {
-        string password = hashWord->getCrypto()->generatePassword(length, useSymbols);
+        SecureString password = hashWord->getCrypto()->generatePassword(length, useSymbols);
 
         if (!options.script)
         {
@@ -293,7 +293,7 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
         user = argv[1];
     }
 
-    string masterPassword;
+    SecureString masterPassword;
     if (!options.script)
     {
         masterPassword = getPassword("Master Password");
@@ -312,7 +312,7 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
 
     if (!options.script)
     {
-        bool res = hashWord->hasPassword(masterKey, string(domain), string(user));
+        bool res = hashWord->hasPassword(masterKey, SecureString(domain), SecureString(user));
         if (res)
         {
             res = confirm("An entry for this domain already exists, overwrite?");
@@ -323,13 +323,13 @@ bool generatePasswordCommand(HashWord* hashWord, Options options, int argc, char
         }
     }
 
-    string password = hashWord->getCrypto()->generatePassword(length, useSymbols);
+    SecureString password = hashWord->getCrypto()->generatePassword(length, useSymbols);
 
-    hashWord->savePassword(masterKey, string(domain), string(user), password);
+    hashWord->savePassword(masterKey, SecureString(domain), SecureString(user), password);
 
     if (!options.script)
     {
-        showPassword(string(user), password);
+        showPassword(SecureString(user), password);
     }
     else
     {
@@ -349,7 +349,7 @@ bool syncCommand(HashWord* hashWord, Options options, int argc, char** argv)
         return false;
     }
 
-    string masterPassword;
+    SecureString masterPassword;
     if (!options.script)
     {
         masterPassword = getPassword("Master Password");
@@ -447,7 +447,7 @@ void help(const char* argv0, int status)
     printf("\t-h\t--help\tThis help text\n");
     printf("\nCommands:\n");
 
-    int i;
+    unsigned int i;
     for (i = 0; i < sizeof(g_commands) / sizeof(command); i++)
     {
         const command* cmd = &(g_commands[i]);
@@ -516,7 +516,7 @@ int main(int argc, char** argv)
     // Only read and writable by the current user, no one else
     umask(077);
 
-    HashWord hashWord(user, dbpath);
+    HashWord hashWord((string(user)), (string(dbpath)));
 
     bool res;
     res = hashWord.open();
@@ -535,7 +535,7 @@ int main(int argc, char** argv)
 
     char* commandArg = argv[optind];
 
-    int i;
+    unsigned int i;
     bool found = false;
     for (i = 0; i < sizeof(g_commands) / sizeof(command); i++)
     {

@@ -34,7 +34,7 @@ void hexdump(const char* pos, int len)
     }
 }
 
-double getPasswordEntropy(string password)
+double getPasswordEntropy(SecureString password)
 {
     ZxcMatch_t *Info;
 

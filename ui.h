@@ -3,10 +3,12 @@
 
 #include <string>
 
-std::string getPassword(std::string prompt);
-void showPassword(std::string username, std::string password);
+#include "securestring.h"
 
-std::string getScriptPassword();
+SecureString getPassword(std::string prompt);
+void showPassword(SecureString username, SecureString password);
+
+SecureString getScriptPassword();
 
 bool confirm(std::string prompt);
 

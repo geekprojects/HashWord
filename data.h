@@ -7,6 +7,8 @@
 
 #include <string>
 
+#include "securestring.h"
+
 struct Data
 {
     size_t length;
@@ -16,7 +18,9 @@ struct Data
 
     std::string encode();
     static std::string encode(uint8_t* data, unsigned int len);
+    static Data* decode(SecureString enc);
     static Data* decode(std::string enc);
+    static Data* decode(const char* enc, size_t length);
 };
 
 struct Key : public Data

@@ -15,9 +15,9 @@
 
 struct PasswordDetails
 {
-    std::string username;
-    std::string info;
-    std::string password;
+    SecureString username;
+    SecureString info;
+    SecureString password;
 };
 
 class HashWord
@@ -26,7 +26,7 @@ class HashWord
     Database* m_database;
     CryptoUtils m_crypto;
 
-    std::string m_username;
+    SecureString m_username;
     Key* m_globalSalt;
     int m_rounds;
 
@@ -45,14 +45,14 @@ class HashWord
     bool open();
 
     bool hasMasterKey();
-    bool saveMasterKey(Key* masterKey, std::string password);
-    Key* getMasterKey(std::string password);
-    std::string getUsername() { return m_username; }
+    bool saveMasterKey(Key* masterKey, SecureString password);
+    Key* getMasterKey(SecureString password);
+    std::string getUsername() { return m_username.string(); }
 
-    bool savePassword(Key* masterKey, std::string domain, std::string domainUser, std::string domainPassword);
-    bool savePassword(Key* masterKey, std::string domain, std::string domainPassword);
-    bool getPassword(Key* masterKey, std::string domain, std::string domainUser, PasswordDetails& details);
-    bool hasPassword(Key* masterKey, std::string domain, std::string domainUser);
+    bool savePassword(Key* masterKey, SecureString domain, SecureString domainUser, SecureString domainPassword);
+    bool savePassword(Key* masterKey, SecureString domain, SecureString domainPassword);
+    bool getPassword(Key* masterKey, SecureString domain, SecureString domainUser, PasswordDetails& details);
+    bool hasPassword(Key* masterKey, SecureString domain, SecureString domainUser);
 
     bool sync(Key* masterKey, HashWord* syncHashWord, bool newOnly = false);
 

@@ -117,7 +117,7 @@ Data* CryptoUtils::encrypt(Key* key, Data* data)
     return encrypt(key, data->data, data->length);
 }
 
-std::string CryptoUtils::encrypt64(Key* key, uint8_t* in, size_t inLength)
+SecureString CryptoUtils::encrypt64(Key* key, uint8_t* in, size_t inLength)
 {
     Data* enc = encrypt(key, in, inLength);
 
@@ -126,14 +126,14 @@ std::string CryptoUtils::encrypt64(Key* key, uint8_t* in, size_t inLength)
         return "";
     }
 
-    string encrypted64 = enc->encode();
+    SecureString encrypted64 = enc->encode();
     shred(enc);
     free(enc);
 
     return encrypted64;
 }
 
-std::string CryptoUtils::encrypt64(Key* key, Data* data)
+SecureString CryptoUtils::encrypt64(Key* key, Data* data)
 {
     return encrypt64(key, data->data, data->length);
 }
@@ -165,7 +165,7 @@ Data* CryptoUtils::encryptMultiple(Key* key1, Key* key2, Data* value, int rounds
     return encrypted;
 }
 
-string CryptoUtils::encryptValue(Key* masterKey, Key* valueKey, string value, int rounds)
+SecureString CryptoUtils::encryptValue(Key* masterKey, Key* valueKey, SecureString value, int rounds)
 {
     size_t valueDataLen = sizeof(Container) + value.length();
     if (valueDataLen < 256)
@@ -185,7 +185,7 @@ string CryptoUtils::encryptValue(Key* masterKey, Key* valueKey, string value, in
 
     Data* encValue = encryptMultiple(masterKey, valueKey, valueData, rounds);
 
-    string valueEnc = encValue->encode();
+    SecureString valueEnc = encValue->encode();
 
     shred(encValue);
     free(encValue);
@@ -239,7 +239,7 @@ Data* CryptoUtils::decrypt(Key* key, Data* encData)
     return dec;
 }
 
-Data* CryptoUtils::decrypt(Key* key, std::string enc64)
+Data* CryptoUtils::decrypt(Key* key, SecureString enc64)
 {
     Data* enc = Data::decode(enc64);
 
@@ -276,7 +276,7 @@ Data* CryptoUtils::decryptMultiple(Key* key1, Key* key2, Data* enc, int rounds)
     return decrypted;
 }
 
-Data* CryptoUtils::decryptMultiple(Key* key1, Key* key2, std::string enc64, int rounds)
+Data* CryptoUtils::decryptMultiple(Key* key1, Key* key2, SecureString enc64, int rounds)
 {
     Data* encData = Data::decode(enc64);
 
@@ -288,12 +288,12 @@ Data* CryptoUtils::decryptMultiple(Key* key1, Key* key2, std::string enc64, int 
     return decData;
 }
 
-string CryptoUtils::decryptValue(Key* masterKey, Key* valueKey, std::string enc64, int rounds)
+SecureString CryptoUtils::decryptValue(Key* masterKey, Key* valueKey, SecureString enc64, int rounds)
 {
     Data* decData = decryptMultiple(masterKey, valueKey, enc64, rounds);
 
     Container* valueData = (Container*)decData->data;
-    string value = string((char*)valueData->data, valueData->length);
+    SecureString value = SecureString((char*)valueData->data, valueData->length);
 
     shred(decData);
     free(decData);
@@ -301,7 +301,7 @@ string CryptoUtils::decryptValue(Key* masterKey, Key* valueKey, std::string enc6
     return value;
 }
 
-std::string CryptoUtils::hash(Key* salt, std::string str)
+SecureString CryptoUtils::hash(Key* salt, SecureString str)
 {
     USHAContext ctx;
     USHAReset(&ctx, SHA512);
@@ -313,11 +313,11 @@ std::string CryptoUtils::hash(Key* salt, std::string str)
 
     uint8_t digest[USHAMaxHashSize];
     USHAResult(&ctx, digest);
-    string hash = Data::encode(digest, SHA512HashSize);
+    SecureString hash = Data::encode(digest, SHA512HashSize);
     return hash;
 }
 
-Key* CryptoUtils::deriveKey(Key* salt, Key* salt2, std::string ikm)
+Key* CryptoUtils::deriveKey(Key* salt, Key* salt2, SecureString ikm)
 {
 #if HASHWORD_KD == HASHWORD_KD_HKDF
     int buflen = 32;
@@ -365,7 +365,7 @@ Key* CryptoUtils::deriveKey(Key* salt, Key* salt2, std::string ikm)
     return newKey;
 }
 
-Key* CryptoUtils::decodeKey(std::string key64)
+Key* CryptoUtils::decodeKey(SecureString key64)
 {
     return (Key*)Data::decode(key64);
 }
@@ -380,30 +380,45 @@ void CryptoUtils::fillRandom(uint8_t* data, size_t length)
     }
 }
 
+/*
+ * https://www.secure-data-destruction.eu/publications/How-to-Choose-a-Secure-Data-Destruction-Method.pdf:
+ * HMG IS5 covers both baseline and Enhanced overwriting of data. At 'baseline'
+ * level the software overwrites every sector of the Hard disk with one pass of
+ * randomly generated data. At 'enhanced' level every sector is over-written three
+ * times: first with a 1, then every sector is over-written again with a 0, and then
+ * every sector is over-written a third time with randomly generated 1s and 0s.
+ * whether baseline or enhanced methods are used a verification pass should always
+ * be applied.
+ *
+ * Bruce Schneier recommends writing random data 5 times. We'll do the lot 5
+ * times to make sure :)
+ */
+Random g_scrubRandom;
 void CryptoUtils::shred(Data* data)
 {
-    volatile uint8_t* dest = data->data;
+    shred(data->data, data->length);
+}
 
-    size_t i;
-    for (i = 0; i < data->length; i++)
+void CryptoUtils::shred(void* data, size_t length)
+{
+    volatile uint8_t* dest = (uint8_t*)data;
+
+    int j;
+    for (j = 0; j < 5; j++)
     {
-        dest[i] = m_random.rand32() % 255;
-    }
-    for (i = 0; i < data->length; i++)
-    {
-        dest[i] = 0;
-    }
-    for (i = 0; i < data->length; i++)
-    {
-        dest[i] = m_random.rand32() % 255;
-    }
-    for (i = 0; i < data->length; i++)
-    {
-        dest[i] = 255;
-    }
-    for (i = 0; i < data->length; i++)
-    {
-        dest[i] = 0;
+        size_t i;
+        for (i = 0; i < length; i++)
+        {
+            dest[i] = 0;
+        }
+        for (i = 0; i < length; i++)
+        {
+            dest[i] = 255;
+        }
+        for (i = 0; i < length; i++)
+        {
+            dest[i] = g_scrubRandom.rand32();
+        }
     }
 }
 
@@ -412,10 +427,10 @@ string g_upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 string g_numbers = "0123456789";
 string g_symbols = "!@#$%^&*()/";
 
-string CryptoUtils::generatePassword(int length, bool useSymbols)
+SecureString CryptoUtils::generatePassword(int length, bool useSymbols)
 {
     double entropyPerChar = 0;
-    string password;
+    SecureString password;
 
     double minEntropy = 5.0;
 

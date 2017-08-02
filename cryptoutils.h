@@ -2,6 +2,7 @@
 #define __HASHWORD_CRYPTO_UTILS_H_
 
 #include "data.h"
+#include "securestring.h"
 
 #include "openaes/oaes_lib.h"
 #include "sha/sha.h"
@@ -19,31 +20,32 @@ class CryptoUtils
     CryptoUtils();
     ~CryptoUtils();
 
-    Key* deriveKey(Key* salt, Key* salt2, std::string ikm);
+    Key* deriveKey(Key* salt, Key* salt2, SecureString ikm);
 
-    std::string encrypt64(Key* key, uint8_t* in, size_t inLength);
-    std::string encrypt64(Key* key, Data* data);
+    SecureString encrypt64(Key* key, uint8_t* in, size_t inLength);
+    SecureString encrypt64(Key* key, Data* data);
     Data* encrypt(Key* key, uint8_t* in, size_t inLength);
     Data* encrypt(Key* key, Data* data);
     Data* encryptMultiple(Key* key1, Key* key2, Data* value, int rounds);
-    std::string encryptValue(Key* masterKey, Key* valueKey, std::string value, int rounds);
+    SecureString encryptValue(Key* masterKey, Key* valueKey, SecureString value, int rounds);
 
     Data* decrypt(Key* key, Data* encData);
-    Data* decrypt(Key* key, std::string enc64);
+    Data* decrypt(Key* key, SecureString enc64);
     Data* decryptMultiple(Key* key1, Key* key2, Data* enc, int rounds);
-    Data* decryptMultiple(Key* key1, Key* key2, std::string enc64, int rounds);
-    std::string decryptValue(Key* masterKey, Key* valueKey, std::string enc64, int rounds);
+    Data* decryptMultiple(Key* key1, Key* key2, SecureString enc64, int rounds);
+    SecureString decryptValue(Key* masterKey, Key* valueKey, SecureString enc64, int rounds);
 
-    Key* decodeKey(std::string key64);
-    std::string hash(Key* salt, std::string str);
+    Key* decodeKey(SecureString key64);
+    SecureString hash(Key* salt, SecureString str);
 
     void fillRandom(uint8_t* data, size_t length);
 
     Key* generateKey();
 
-    std::string generatePassword(int length, bool useSymbols);
+    SecureString generatePassword(int length, bool useSymbols);
 
-    void shred(Data* data);
+    static void shred(Data* data);
+    static void shred(void* data, size_t length);
 };
 
 #endif

@@ -55,9 +55,9 @@ void resetMode(struct termios* tsave)
     }
 }
 
-string getPassword(string prompt)
+SecureString getPassword(string prompt)
 {
-    string password = "";
+    SecureString password;
     struct termios tsave;
 
     setPasswordMode(&tsave);
@@ -67,7 +67,7 @@ string getPassword(string prompt)
         printf("%s: ", prompt.c_str());
         fflush(stdout);
 
-        password = "";
+        password.clear();
         while (1)
         {
             int c = getchar();
@@ -95,7 +95,7 @@ string getPassword(string prompt)
     return password;
 }
 
-void showPassword(string username, string password)
+void showPassword(SecureString username, SecureString password)
 {
     struct termios tsave;
 
@@ -119,7 +119,7 @@ void showPassword(string username, string password)
     printf("\n");
 }
 
-string getScriptPassword()
+SecureString getScriptPassword()
 {
     char buffer[1024];
     char* res;

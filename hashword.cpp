@@ -16,7 +16,7 @@ HashWord::HashWord(string username, string dbpath)
 {
     m_database = new Database(dbpath);
 
-    m_username = username;
+    m_username = SecureString(username);
 
     m_rounds = ROUNDS_DEFAULT;
 }
@@ -72,7 +72,7 @@ bool HashWord::open()
 
     if (hasConfig(CONFIG_GLOBAL_SALT))
     {
-        string globalSalt64 = getConfig(CONFIG_GLOBAL_SALT);
+        SecureString globalSalt64 = getConfig(CONFIG_GLOBAL_SALT);
         m_globalSalt = m_crypto.decodeKey(globalSalt64);
     }
     else
@@ -100,7 +100,7 @@ hkdf((username + password), salt) -> User Key
 
 */
 
-bool HashWord::saveMasterKey(Key* masterKey, string password)
+bool HashWord::saveMasterKey(Key* masterKey, SecureString password)
 {
     if (m_globalSalt == NULL)
     {
@@ -111,7 +111,7 @@ bool HashWord::saveMasterKey(Key* masterKey, string password)
     // Generate a salt
     Key* salt = m_crypto.generateKey();
 
-    Key* userKey = m_crypto.deriveKey(salt, m_globalSalt, m_username + password);
+    Key* userKey = m_crypto.deriveKey(salt, m_globalSalt, SecureString(m_username) + password);
 
     Data* masterKeyEnc = m_crypto.encryptMultiple(userKey, NULL, (Data*)masterKey, m_rounds);
     string masterKey64 = masterKeyEnc->encode();
@@ -119,10 +119,10 @@ bool HashWord::saveMasterKey(Key* masterKey, string password)
     m_crypto.shred(masterKeyEnc);
     free(masterKeyEnc);
 
-    string userHash = m_crypto.hash(m_globalSalt, m_username);
+    SecureString userHash = m_crypto.hash(m_globalSalt, m_username);
     string salt64 = salt->encode();
 
-    string checkHash = m_crypto.hash(masterKey, salt64);
+    SecureString checkHash = m_crypto.hash(masterKey, salt64);
 
     m_crypto.shred(userKey);
     free(userKey);
@@ -131,10 +131,10 @@ bool HashWord::saveMasterKey(Key* masterKey, string password)
     free(salt);
 
     vector<string> args;
-    args.push_back(userHash);
+    args.push_back(userHash.string());
     args.push_back(salt64);
     args.push_back(masterKey64);
-    args.push_back(checkHash);
+    args.push_back(checkHash.string());
 
     m_database->execute(
         "INSERT OR REPLACE INTO user_keys (user_hash, salt, master_key_enc, check_hash) VALUES (?, ?, ?, ?)",
@@ -146,8 +146,8 @@ bool HashWord::saveMasterKey(Key* masterKey, string password)
 bool HashWord::hasMasterKey()
 {
     PreparedStatement* stmt = m_database->prepareStatement("SELECT 1 FROM user_keys WHERE user_hash=?");
-    string userHash = m_crypto.hash(NULL, m_username);
-    stmt->bindString(1, userHash);
+    SecureString userHash = m_crypto.hash(NULL, SecureString(m_username));
+    stmt->bindString(1, userHash.string());
 
     bool res;
     res = stmt->executeQuery();
@@ -168,7 +168,7 @@ bool HashWord::hasMasterKey()
     return true;
 }
 
-Key* HashWord::getMasterKey(string password)
+Key* HashWord::getMasterKey(SecureString password)
 {
     if (m_globalSalt == NULL)
     {
@@ -177,8 +177,8 @@ Key* HashWord::getMasterKey(string password)
     }
 
     PreparedStatement* stmt = m_database->prepareStatement("SELECT salt, master_key_enc, check_hash FROM user_keys WHERE user_hash=?");
-    string userHash = m_crypto.hash(m_globalSalt, m_username);
-    stmt->bindString(1, userHash);
+    SecureString userHash = m_crypto.hash(m_globalSalt, m_username);
+    stmt->bindString(1, userHash.string());
 
     bool res;
     res = stmt->executeQuery();
@@ -197,7 +197,7 @@ Key* HashWord::getMasterKey(string password)
 
     string salt64 = stmt->getString(0);
     string masterKey64 = stmt->getString(1);
-    string checkHash = stmt->getString(2);
+    SecureString checkHash = SecureString(stmt->getString(2));
 
     delete stmt;
 
@@ -207,7 +207,7 @@ Key* HashWord::getMasterKey(string password)
 
     Key* masterKey = (Key*)m_crypto.decryptMultiple(userKey, NULL, masterKey64, m_rounds);
 
-    string checkHash2 = m_crypto.hash(masterKey, salt64);
+    SecureString checkHash2 = m_crypto.hash(masterKey, salt64);
 
     m_crypto.shred(userKey);
     free(userKey);
@@ -225,7 +225,7 @@ Key* HashWord::getMasterKey(string password)
     return masterKey;
 }
 
-bool HashWord::savePassword(Key* masterKey, string domain, string domainUser, string domainPassword)
+bool HashWord::savePassword(Key* masterKey, SecureString domain, SecureString domainUser, SecureString domainPassword)
 {
     if (domainUser.length() == 0)
     {
@@ -235,13 +235,13 @@ bool HashWord::savePassword(Key* masterKey, string domain, string domainUser, st
     Key* salt = m_crypto.generateKey();
     Key* passwordKey = m_crypto.deriveKey(salt, m_globalSalt, domainUser + domain);
 
-    string domainUserEnc = m_crypto.encryptValue(masterKey, passwordKey, domainUser, m_rounds);
-    string domainPasswordEnc = m_crypto.encryptValue(masterKey, passwordKey, domainPassword, m_rounds);
+    SecureString domainUserEnc = m_crypto.encryptValue(masterKey, passwordKey, domainUser, m_rounds);
+    SecureString domainPasswordEnc = m_crypto.encryptValue(masterKey, passwordKey, domainPassword, m_rounds);
 
     m_crypto.shred(passwordKey);
     free(passwordKey);
 
-    string idHash = m_crypto.hash(masterKey, m_username + ":" + domainUser + ":" + domain);
+    SecureString idHash = m_crypto.hash(masterKey, m_username + ":" + domainUser + ":" + domain);
 
     Data* saltEnc = m_crypto.encryptMultiple(masterKey, NULL, salt, m_rounds);
     string saltEnc64 = saltEnc->encode();
@@ -249,14 +249,14 @@ bool HashWord::savePassword(Key* masterKey, string domain, string domainUser, st
     time_t now = time(NULL);
     char updatedStr[16];
     snprintf(updatedStr, 16, "%lu", now);
-    string updatedEnc64 = m_crypto.encryptValue(masterKey, NULL, updatedStr, m_rounds);
+    SecureString updatedEnc64 = m_crypto.encryptValue(masterKey, NULL, updatedStr, m_rounds);
 
-    savePassword(idHash, saltEnc64, domainUserEnc, domainPasswordEnc, updatedEnc64);
+    savePassword(idHash.string(), saltEnc64, domainUserEnc.string(), domainPasswordEnc.string(), updatedEnc64.string());
 
     return true;
 }
 
-bool HashWord::savePassword(Key* masterKey, string domain, std::string domainPassword)
+bool HashWord::savePassword(Key* masterKey, SecureString domain, SecureString domainPassword)
 {
     return savePassword(masterKey, domain, "", domainPassword);
 }
@@ -283,18 +283,18 @@ bool HashWord::savePassword(
 }
 
 
-bool HashWord::getPassword(Key* masterKey, string domain, string user, PasswordDetails& details)
+bool HashWord::getPassword(Key* masterKey, SecureString domain, SecureString user, PasswordDetails& details)
 {
     if (user.length() == 0)
     {
         user = m_username;
     }
 
-    string idHash = m_crypto.hash(masterKey, m_username + ":" + user + ":" + domain);
+    SecureString idHash = m_crypto.hash(masterKey, m_username + ":" + user + ":" + domain);
 
     PreparedStatement* stmt = m_database->prepareStatement(
         "SELECT domain_info_enc, domain_password_enc, salt_enc FROM passwords WHERE id=?");
-    stmt->bindString(1, idHash);
+    stmt->bindString(1, idHash.string());
 
     bool res;
     res = stmt->executeQuery();
@@ -336,18 +336,18 @@ bool HashWord::getPassword(Key* masterKey, string domain, string user, PasswordD
     return true;
 }
 
-bool HashWord::hasPassword(Key* masterKey, string domain, string user)
+bool HashWord::hasPassword(Key* masterKey, SecureString domain, SecureString user)
 {
     if (user.length() == 0)
     {
         user = m_username;
     }
 
-    string idHash = m_crypto.hash(masterKey, m_username + ":" + user + ":" + domain);
+    SecureString idHash = m_crypto.hash(masterKey, m_username + ":" + user + ":" + domain);
 
     PreparedStatement* stmt = m_database->prepareStatement(
         "SELECT domain_info_enc, domain_password_enc, salt_enc FROM passwords WHERE id=?");
-    stmt->bindString(1, idHash);
+    stmt->bindString(1, idHash.string());
 
     bool res;
     res = stmt->executeQuery();
@@ -391,7 +391,7 @@ bool HashWord::sync(Key* masterKey, HashWord* syncHashWord, bool newOnly)
         string domainPasswordEnc = stmt->getString(3);
         string updatedEnc64 = stmt->getString(4);
 
-        string updatedStr = m_crypto.decryptValue(masterKey, NULL, updatedEnc64, m_rounds);
+        SecureString updatedStr = m_crypto.decryptValue(masterKey, NULL, updatedEnc64, m_rounds);
         uint64_t updated = atoll(updatedStr.c_str());
 
         //printf("HashWord::sync: updated=%lld\n", updated);
@@ -422,7 +422,7 @@ bool HashWord::sync(Key* masterKey, HashWord* syncHashWord, bool newOnly)
             string syncUpdatedEnc = syncStmt->getString(3);
             delete syncStmt;
 
-            string syncUpdatedStr = m_crypto.decryptValue(masterKey, NULL, syncUpdatedEnc, m_rounds);
+            SecureString syncUpdatedStr = m_crypto.decryptValue(masterKey, NULL, syncUpdatedEnc, m_rounds);
             uint64_t syncUpdated = atoll(syncUpdatedStr.c_str());
 
             //printf("HashWord::sync:  -> syncUpdated=%lld\n", syncUpdated);

@@ -87,11 +87,19 @@ string Data::encode(uint8_t* bytes_to_encode, unsigned int in_len)
     return ret;
 }
 
+Data* Data::decode(SecureString encoded_string)
+{
+    return decode(encoded_string.c_str(), encoded_string.length());
+}
+
 Data* Data::decode(string encoded_string)
 {
-    Data* decoded;
+    return decode(encoded_string.c_str(), encoded_string.length());
+}
 
-    int in_len = encoded_string.size();
+Data* Data::decode(const char* encoded_string, size_t length)
+{
+    int in_len = length;
     int i = 0;
     int j = 0;
     int in_ = 0;
