@@ -85,6 +85,9 @@ bool Database::close()
         return true;
     }
     sqlite3_close(m_db);
+
+    m_open = false;
+
     return true;
 }
 
