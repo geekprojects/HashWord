@@ -5,7 +5,7 @@ AC_PREREQ([2.69])
 AC_INIT([hashword], [0.1], [ian@geekprojects.com])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
 
-AC_CONFIG_SRCDIR([cryptoutils.cpp])
+AC_CONFIG_SRCDIR([src])
 AC_CONFIG_HEADERS([config.h])
 
 
@@ -41,8 +41,9 @@ AC_CHECK_FUNCS([memset mkdir munmap strchr getentropy])
 CPPFLAGS="$CPPFLAGS -std=c++11 -Wall -Werror"
 
 AC_CONFIG_FILES([Makefile
-                 openaes/Makefile
-                 scrypt/Makefile
-                 sha/Makefile
-                 zxcvbn/Makefile])
+                 src/Makefile
+                 src/openaes/Makefile
+                 src/scrypt/Makefile
+                 src/sha/Makefile
+                 src/zxcvbn/Makefile])
 AC_OUTPUT
