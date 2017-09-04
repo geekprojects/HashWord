@@ -106,7 +106,7 @@ void hideLines(int number)
         printf("%c[1B", 0x1B);
     }
 
-    printf("%c[2K", 0x1B);
+    printf("%c[2K\n", 0x1B);
 }
 
 void showPassword(SecureString username, SecureString password, bool showEntropy)
