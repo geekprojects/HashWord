@@ -95,12 +95,34 @@ SecureString getPassword(string prompt)
     return password;
 }
 
-void showPassword(SecureString username, SecureString password)
+void hideLines(int number)
+{
+    int i;
+    printf("%c[%dA", 0x1B, number);
+
+    for (i = 0; i < number; i++)
+    {
+        printf("%c[2K", 0x1B);
+        printf("%c[1B", 0x1B);
+    }
+
+    printf("%c[2K", 0x1B);
+}
+
+void showPassword(SecureString username, SecureString password, bool showEntropy)
 {
     struct termios tsave;
 
     printf("Username: %s\n", username.c_str());
-    printf("Password: %s (%0.2f entropy bits)\n", password.c_str(), getPasswordEntropy(password));
+    if (showEntropy)
+    {
+        printf("Password: %s (%0.2f entropy bits)\n", password.c_str(), getPasswordEntropy(password));
+    }
+    else
+    {
+        printf("Password: %s\n", password.c_str());
+    }
+
     printf("Press a key to hide the password");
     fflush(stdout);
 
@@ -109,14 +131,7 @@ void showPassword(SecureString username, SecureString password)
 
     resetMode(&tsave);
 
-    printf("%c[2A", 0x1B);
-    printf("%c[2K", 0x1B);
-    printf("%c[1B", 0x1B);
-    printf("%c[2K", 0x1B);
-    printf("%c[1B", 0x1B);
-    printf("%c[2K", 0x1B);
-    printf("\n");
-    printf("\n");
+    hideLines(2);
 }
 
 SecureString getScriptPassword()

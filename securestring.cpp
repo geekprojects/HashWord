@@ -136,6 +136,15 @@ SecureString SecureString::operator +=(char rhs)
     return *this;
 }
 
+char SecureString::at(unsigned int idx)
+{
+    if (idx >= m_stringLength)
+    {
+        return 0;
+    }
+    return m_buffer[idx];
+}
+
 SecureString SecureString::operator +=(const char* rhs)
 {
     int rhsLen = strlen(rhs);

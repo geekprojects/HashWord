@@ -145,6 +145,13 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
     if (!options.script)
     {
         domainPassword = getPassword("Domain Password");
+
+        SecureString password2 = getPassword("Retype password");
+        if (domainPassword != password2)
+        {
+            printf("Passwords do not match\n");
+            return false;
+        }
     }
     else
     {
@@ -159,18 +166,74 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
     return true;
 }
 
+static const struct option g_getPasswordOptions[] =
+{
+    { "chars",    required_argument, NULL, 'c' },
+    { "help",     no_argument, NULL, 'h' },
+    { NULL,       0,                 NULL, 0 }
+};
+
 bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** argv)
 {
+#ifdef _OPTRESET
+    optreset = 1;
+#endif
+
+    optind = 0;
+    opterr = 0;
+
+    vector<int> chars;
+
+    while (true)
+    {
+        int c = getopt_long(
+            argc,
+            argv,
+            "+c:h",
+            g_getPasswordOptions,
+            NULL);
+
+        if (c == -1)
+        {
+            break;
+        }
+        switch (c)
+        {
+            case 'c':
+            {
+                char* charStr = strdup(optarg);
+                char* sepPos = charStr;
+                printf("getPasswordCommand: charStr=%s\n", charStr);
+                char* token;
+                while ((token = strsep(&sepPos, ",")) != NULL)
+                {
+                    int ch = atoi(token);
+                    chars.push_back(ch);
+                }
+            } break;
+
+            case 'h':
+                printf("Usage: hashword get [options] domain [domain user]\n");
+                printf("Options:\n");
+                printf("\t-c\t--chars=chars\tComma separated list of password chars to print\n");
+                printf("\t-h\t--help\tPrint this help\n");
+                break;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
     if (argc < 1)
     {
         return false;
     }
 
-    const char* domain = argv[1];
+    const char* domain = argv[0];
     const char* user = "";
-    if (argc > 2)
+    if (argc > 1)
     {
-        user = argv[2];
+        user = argv[1];
     }
 
     SecureString masterPassword;
@@ -195,9 +258,38 @@ bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** ar
     hashWord->getCrypto()->shred(masterKey);
     free(masterKey);
 
+    bool showEntropy = true;
+    if (!chars.empty())
+    {
+        SecureString charsStr = "";
+        vector<int>::iterator it;
+        bool comma = false;
+        for (it = chars.begin(); it != chars.end(); it++)
+        {
+            int charnum = *it;
+            if (comma)
+            {
+                charsStr += ", ";
+            }
+            comma = true;
+
+            char charnumstr[10];
+            sprintf(charnumstr, "%d", charnum);
+
+            char c = details.password.at(charnum - 1);
+            if (c != 0)
+            {
+                SecureString charOutput = SecureString(charnumstr) + "='" + c + "'";
+                charsStr += charOutput;
+            }
+        }
+        details.password = charsStr;
+        showEntropy = false;
+    }
+
     if (!options.script)
     {
-        showPassword(details.username, details.password);
+        showPassword(details.username, details.password, showEntropy);
     }
     else
     {
@@ -416,6 +508,25 @@ bool syncCommand(HashWord* hashWord, Options options, int argc, char** argv)
     return true;
 }
 
+bool entropyCommand(HashWord* hashWord, Options options, int argc, char** argv)
+{
+    SecureString password;
+    if (!options.script)
+    {
+        password = getPassword("Password");
+    }
+    else
+    {
+        password = getScriptPassword();
+    }
+
+    double entropy = getPasswordEntropy(password);
+
+    printf("%0.2f bits of entropy\n", entropy);
+
+    return true;
+}
+
 typedef struct command
 {
     const char* name;
@@ -430,7 +541,8 @@ static const command g_commands[] =
     { "save", "Save or update an entry", savePasswordCommand },
     { "get", "Retrieve an entry", getPasswordCommand },
     { "gen", "Generate a new password and create or update an entry", generatePasswordCommand },
-    { "sync", "Synchronise passwords with a remote database", syncCommand }
+    { "sync", "Synchronise passwords with a remote database", syncCommand },
+    { "entropy", "Calculate the amount of entropy for a given password", entropyCommand }
 };
 
 static const struct option g_options[] =

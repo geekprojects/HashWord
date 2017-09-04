@@ -76,12 +76,13 @@ Usage
         -h    --help        This help text
 
     Commands:
-        init   Create a new database or add a new user
-        change Change master password
-        save   Save or update an entry
-        get    Retrieve an entry
-        gen    Generate a new password and create or update an entry
-        sync   Synchronise database with a remote database
+        init    Create a new database or add a new user
+        change  Change master password
+        save    Save or update an entry
+        get     Retrieve an entry
+        gen     Generate a new password and create or update an entry
+        sync    Synchronise database with a remote database
+        entropy Show the number of bits of entropy for a password
 
     Use 'hashword <command> --help' for specific help.
 
@@ -89,9 +90,10 @@ Usage
 Hints
 ---
 
-* Use a good, secure master password
-* Do not use a master password that you use for anything else
-* Change the master password occasionally, but not so frequently that you end up using an insecure one
+* Use a good, secure master password!!
+    * Using this tool is pointless if you use a weak password. Remember that anyone trying to get access to your passwords will likely have a copy of the database and can spend as much time as they like trying to brute force it.
+    * Do not use a master password that you use for anything else
+    * Change the master password occasionally, but not so frequently that you end up using an insecure one
 * Keep backups of the database!
 * If you're paranoid, make sure you build HashWord from source
 

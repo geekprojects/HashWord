@@ -37,6 +37,8 @@ class SecureString
     SecureString operator +(const char* rhs);
     SecureString operator +(const SecureString& rhs);
 
+    char at(unsigned int idx);
+
     bool operator !=(const SecureString& rhs);
 
     size_t length() const { return m_stringLength; }

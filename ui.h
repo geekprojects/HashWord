@@ -6,7 +6,7 @@
 #include "securestring.h"
 
 SecureString getPassword(std::string prompt);
-void showPassword(SecureString username, SecureString password);
+void showPassword(SecureString username, SecureString password, bool showEntropy = true);
 
 SecureString getScriptPassword();
 
