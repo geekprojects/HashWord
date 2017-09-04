@@ -1,5 +1,7 @@
 #!/bin/bash
 
+HASHWORD=src/hashword
+
 TESTDB1=test.db
 TESTDB2=test_copy.db
 TESTUSER=testuser
@@ -25,7 +27,7 @@ function savepassword()
     domain=$1
     domainuser=$2
     password=$3
-    echo -e "${MASTERPW}\n${password}" | ./hashword --database ${TESTDB} --user ${TESTUSER} -s save "${domain}" "${domainuser}"
+    echo -e "${MASTERPW}\n${password}" | ${HASHWORD} --database ${TESTDB} --user ${TESTUSER} -s save "${domain}" "${domainuser}"
 }
 
 function generatepassword()
@@ -33,8 +35,8 @@ function generatepassword()
     domain=$1
     domainuser=$2
 
-    #results=`echo "${MASTERPW}" | ./hashword --database ${TESTDB} --user ${TESTUSER} -s gen $domain ${domainuser}|tr '\n' ':'|cut -d':'`
-    results=`echo "${MASTERPW}" | ./hashword --database ${TESTDB} --user ${TESTUSER} -s gen $domain ${domainuser}`
+    #results=`echo "${MASTERPW}" | ${HASHWORD} --database ${TESTDB} --user ${TESTUSER} -s gen $domain ${domainuser}|tr '\n' ':'|cut -d':'`
+    results=`echo "${MASTERPW}" | ${HASHWORD} --database ${TESTDB} --user ${TESTUSER} -s gen $domain ${domainuser}`
     echo $results
 }
 
@@ -43,7 +45,7 @@ function getpassword()
     domain=$1
     user=$2
 
-    results=`echo "${MASTERPW}" | ./hashword --database ${TESTDB} --user ${TESTUSER} -s get $domain ${user}|tr '\n' ':'`
+    results=`echo "${MASTERPW}" | ${HASHWORD} --database ${TESTDB} --user ${TESTUSER} -s get $domain ${user}|tr '\n' ':'`
     results_pw=`echo $results|cut -f2 -d':'`
     echo $results_pw
 }
@@ -78,14 +80,14 @@ function changemasterpassword()
     original=$1
     new=$2
 
-    echo -e "${original}\n${new}" | ./hashword --database ${TESTDB} --user ${TESTUSER} -s change
+    echo -e "${original}\n${new}" | ${HASHWORD} --database ${TESTDB} --user ${TESTUSER} -s change
 }
 
 function syncdbs()
 {
     target=$1
 
-    echo -e "${MASTERPW}" | ./hashword --database ${TESTDB} --user ${TESTUSER} -s sync ${target}
+    echo -e "${MASTERPW}" | ${HASHWORD} --database ${TESTDB} --user ${TESTUSER} -s sync ${target}
 }
 
 
@@ -95,7 +97,7 @@ rm -f $TESTDB1 $TESTDB2
 export TESTDB=$TESTDB1
 export MASTERPW=$MASTERPW1
 
-echo $MASTERPW | ./hashword --database ${TESTDB} --user ${TESTUSER} -s init
+echo $MASTERPW | ${HASHWORD} --database ${TESTDB} --user ${TESTUSER} -s init
 
 echo "Test: Domain 1: Set entry password"
 savepassword $DOMAIN1_NAME '' $DOMAIN1_PW1
