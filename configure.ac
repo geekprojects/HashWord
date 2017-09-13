@@ -3,6 +3,7 @@
 
 AC_PREREQ([2.69])
 AC_INIT([hashword], [0.1], [ian@geekprojects.com])
+AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
 
 AC_CONFIG_SRCDIR([src])
@@ -37,6 +38,28 @@ AC_TYPE_UINT8_T
 AC_FUNC_MALLOC
 AC_FUNC_MMAP
 AC_CHECK_FUNCS([memset mkdir munmap strchr getentropy])
+
+case $target_os in
+     *linux*)   arch=linux;;
+     *darwin*)  arch=darwin;;
+     *)         arch=unknown;;
+esac
+
+AM_CONDITIONAL([LINUX], [ test x"$arch" = x"linux" ])
+AM_CONDITIONAL([DARWIN], [ test x"$arch" = x"darwin" ])
+
+AC_ARG_ENABLE(
+    [memdump],
+    [AS_HELP_STRING([--enable-memdump], [Dump memory image after each invocation [default=no]])],
+    [
+        memdump_build="$enableval"
+        if test "$enableval" = "yes"
+        then
+            AC_DEFINE(ENABLE_MEMDUMP, 1, [Define to 1 if you want to dump memory after each invocation.])
+        fi
+    ],
+    [memdump_build=no])
+AM_CONDITIONAL([BUILD_MEMDUMP], [test  x"$memdump_build" = x"yes"])
 
 CPPFLAGS="$CPPFLAGS -std=c++11 -Wall -Werror"
 

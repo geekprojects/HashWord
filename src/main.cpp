@@ -9,11 +9,14 @@
 
 #include <getopt.h>
 
+#include "config.h"
 #include "hashword.h"
 #include "ui.h"
 #include "utils.h"
 
 using namespace std;
+
+bool dumpmem();
 
 struct Options
 {
@@ -691,6 +694,10 @@ int main(int argc, char** argv)
         printf("%s: Unknown command: %s\n", argv[0], commandArg);
         help(argv[0], 1);
     }
+
+#ifdef ENABLE_MEMDUMP
+    dumpmem();
+#endif
 
     return 0;
 }
