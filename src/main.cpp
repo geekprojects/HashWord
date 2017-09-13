@@ -99,18 +99,6 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
         return false;
     }
 
-    const char* user = "";
-    const char* domain = "";
-    if (argc == 2)
-    {
-        domain = argv[1];
-    }
-    else if (argc == 3)
-    {
-        domain = argv[1];
-        user = argv[2];
-    }
-
     SecureString masterPassword;
     if (!options.script)
     {
@@ -119,6 +107,29 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
     else
     {
         masterPassword = getScriptPassword();
+    }
+
+    const char* user = "";
+    SecureString domain;
+    if (argc == 1)
+    {
+        if (!options.script)
+        {
+            domain = getPassword("Domain");
+        }
+        else
+        {
+            domain = getScriptPassword();
+        }
+    }
+    else if (argc == 2)
+    {
+        domain = SecureString(argv[1]);
+    }
+    else if (argc == 3)
+    {
+        domain = argv[1];
+        user = argv[2];
     }
 
     Key* masterKey = hashWord->getMasterKey(masterPassword);
@@ -130,7 +141,7 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
 
     if (!options.script)
     {
-        bool res = hashWord->hasPassword(masterKey, SecureString(domain), SecureString(user));
+        bool res = hashWord->hasPassword(masterKey, domain, SecureString(user));
         if (res)
         {
             res = confirm("An entry for this domain already exists, overwrite?");
@@ -158,7 +169,7 @@ bool savePasswordCommand(HashWord* hashWord, Options options, int argc, char** a
         domainPassword = getScriptPassword();
     }
 
-    hashWord->savePassword(masterKey, SecureString(domain), SecureString(user), domainPassword);
+    hashWord->savePassword(masterKey, domain, SecureString(user), domainPassword);
 
     hashWord->getCrypto()->shred(masterKey);
     free(masterKey);
@@ -224,18 +235,6 @@ bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** ar
     argc -= optind;
     argv += optind;
 
-    if (argc < 1)
-    {
-        return false;
-    }
-
-    const char* domain = argv[0];
-    const char* user = "";
-    if (argc > 1)
-    {
-        user = argv[1];
-    }
-
     SecureString masterPassword;
     if (!options.script)
     {
@@ -246,6 +245,28 @@ bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** ar
         masterPassword = getScriptPassword();
     }
 
+    SecureString domain;
+    if (argc > 0)
+    {
+        domain = SecureString(argv[0]);
+    }
+    else
+    {
+        if (!options.script)
+        {
+            domain = getPassword("Domain");
+        }
+        else
+        {
+            domain = getScriptPassword();
+        }
+    }
+
+    const char* user = "";
+    if (argc > 1)
+    {
+        user = argv[1];
+    }
     Key* masterKey = hashWord->getMasterKey(masterPassword);
     if (masterKey == NULL)
     {
@@ -254,7 +275,7 @@ bool getPasswordCommand(HashWord* hashWord, Options options, int argc, char** ar
     }
 
     PasswordDetails details;
-    hashWord->getPassword(masterKey, SecureString(domain), SecureString(user), details);
+    hashWord->getPassword(masterKey, domain, SecureString(user), details);
     hashWord->getCrypto()->shred(masterKey);
     free(masterKey);
 
